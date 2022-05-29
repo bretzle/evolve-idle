@@ -10,3 +10,4 @@ edition = "2021"
 egui = "0.18.0"
 eframe = { version = "0.18.0", features = ["persistence"] }
 serde = { version = "1", features = ["derive"] }
+fastrand = "1.7.0"
