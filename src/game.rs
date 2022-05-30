@@ -4,29 +4,28 @@ use std::{
     ops::{AddAssign, SubAssign},
 };
 
-use crate::util::{Bounded, MutMap};
+use crate::{
+    structure::Structure,
+    util::{Bounded, MutMap},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Resource {
-    pub amt: Bounded,
+    pub amount: f32,
+    pub max: f32,
+    pub delta: f32,
     pub display: bool,
+}
+
+impl Resource {
+    pub fn is_full(&self) -> bool {
+        self.amount >= self.max
+    }
 }
 
 impl fmt::Display for Resource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/{}", self.amt.get(), self.amt.max)
-    }
-}
-
-impl<T: Into<f64> + Copy> AddAssign<T> for Resource {
-    fn add_assign(&mut self, rhs: T) {
-        self.amt.modify(|val| *val += rhs.into());
-    }
-}
-
-impl<T: Into<f64> + Copy> SubAssign<T> for Resource {
-    fn sub_assign(&mut self, rhs: T) {
-        self.amt.modify(|val| *val -= rhs.into());
+        write!(f, "{}/{}", self.amount, self.max)
     }
 }
 
@@ -40,10 +39,20 @@ macro_rules! map {
     };
 }
 
+macro_rules! set {
+    ($( $val:expr ),* $(,)?) => {
+        {
+            let mut set = HashSet::new();
+            $( set.insert($val); )*
+            set
+        }
+    };
+}
+
 #[derive(Clone, Copy)]
 pub struct Cost {
     pub resource: &'static str,
-    pub amount: f64,
+    pub amount: f32,
 }
 
 pub enum GameStage {
@@ -59,7 +68,7 @@ pub struct GameData {
     pub seed: u64,
     pub stage: GameStage,
     pub resource: MutMap<&'static str, Resource>,
-    pub evolution: MutMap<&'static str, u32>,
+    pub evolution: MutMap<&'static str, u16>,
     pub unlocks: HashSet<&'static str>,
     pub race: Race,
 }
@@ -70,8 +79,8 @@ impl GameData {
             seed: 1,
             stage: GameStage::Evolution,
             resource: map! {
-                "RNA" => Resource { amt: Bounded::new(1000, 1000), display: false },
-                "DNA" => Resource { amt: Bounded::new(10000, 10000), display: false },
+                "RNA" => Resource { amount: 0.0, max: 100.0, display: true, delta: 0.0 },
+                "DNA" => Resource { amount: 0.0, max: 100.0, display: false, delta: 0.0 },
             },
             evolution: map! {
                 "membrane" => 0,
@@ -81,7 +90,7 @@ impl GameData {
                 "mitochondria" => 0,
                 "sexual_reproduction" => 0,
             },
-            unlocks: HashSet::new(),
+            unlocks: set![crate::evolution::Rna::ID,],
             race: Race {
                 species: "protoplasm",
             },
@@ -90,7 +99,7 @@ impl GameData {
 
     pub fn afford(&self, costs: &[Cost]) -> bool {
         for Cost { resource, amount } in costs {
-            if self.resource[resource].amt < *amount {
+            if self.resource[resource].amount < *amount {
                 return false;
             }
         }
@@ -100,7 +109,7 @@ impl GameData {
 
     pub fn pay(&mut self, costs: &[Cost]) {
         for Cost { resource, amount } in costs {
-            self.resource[resource] -= *amount;
+            self.resource[resource].amount -= *amount;
         }
     }
 
@@ -124,5 +133,36 @@ impl GameData {
         self.resource.remove("DNA");
 
         // setup race traits
+    }
+
+    pub(crate) fn mod_res<T: Into<f32>>(
+        &mut self,
+        res: &'static str,
+        val: T,
+        notrack: bool,
+        buffer: bool,
+    ) -> bool {
+        let val = val.into();
+        let mut count = self.resource[res].amount + val;
+        let mut success = true;
+
+        if count > self.resource[res].max && self.resource[res].max != -1.0 {
+            count = self.resource[res].max;
+        } else if count < 0.0 {
+            if !buffer || (buffer && (-count > buffer as u32 as f32)) {
+                success = false;
+            }
+            count = 0.0;
+        }
+
+        if !count.is_nan() {
+            self.resource[res].amount = count;
+            if !notrack {
+                self.resource[res].delta += val;
+                // TODO: mana
+            }
+        }
+
+        success
     }
 }

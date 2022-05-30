@@ -487,6 +487,7 @@ dependencies = [
  "eframe",
  "egui",
  "fastrand",
+ "gemstone",
  "serde",
 ]
 
@@ -528,6 +529,25 @@ checksum = "5fc25a87fa4fd2094bffb06925852034d90a17f0d1e05197d4956d3555752191"
 dependencies = [
  "matches",
  "percent-encoding",
+]
+
+[[package]]
+name = "gem-macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5e33d12022be95082502683282a9f1b590078b99f73060205f05a075360b1cc"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "gemstone"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8dd412600eb450379b7e644db4ad121a8e94b67e995ede54010120a3a435968d"
+dependencies = [
+ "gem-macros",
 ]
 
 [[package]]

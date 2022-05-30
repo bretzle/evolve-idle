@@ -83,3 +83,23 @@ impl PartialOrd<f64> for Bounded {
         self.cur.partial_cmp(other)
     }
 }
+
+///////////////////////////////////
+
+pub struct Rng(fastrand::Rng);
+
+impl Rng {
+    pub const fn new() -> Self {
+        Self(gemstone::mem::zero())
+    }
+}
+
+impl Deref for Rng {
+    type Target = fastrand::Rng;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+unsafe impl Sync for Rng {}
