@@ -227,7 +227,7 @@ impl Structure for Mitochondria {
     }
 
     fn effect() -> &'static str {
-        todo!()
+        "Increases the effect of membranes and eukaryotic cells"
     }
 
     fn description() -> &'static str {
@@ -241,6 +241,9 @@ impl Structure for Mitochondria {
         }
         for _ in 0..game.evolution["eukaryotic_cell"] {
             game.resource["DNA"].max += 10.0;
+        }
+        if game.evolution["sexual_reproduction"] == 0 {
+            game.unlock("sexual_reproduction");
         }
     }
 }
@@ -261,7 +264,7 @@ impl Structure for SexualReproduction {
     }
 
     fn effect() -> &'static str {
-        todo!()
+        "Increases RNA generation from organelles"
     }
 
     fn description() -> &'static str {
@@ -296,7 +299,7 @@ impl Structure for Chloroplasts {
     }
 
     fn effect() -> &'static str {
-        todo!()
+        "Evolve in the direction of the plant kingdom. This is a major evolutionary fork."
     }
 
     fn description() -> &'static str {
@@ -332,7 +335,7 @@ impl Structure for Multicellular {
     }
 
     fn effect() -> &'static str {
-        todo!()
+        "Decreases cost of producing new nucleus."
     }
 
     fn description() -> &'static str {
@@ -346,7 +349,7 @@ impl Structure for Multicellular {
         if game.evolution.contains_key("phagocytosis") {
             todo!()
         } else if game.evolution.contains_key("chloroplasts") {
-            game.unlock("pokilohydric");
+            game.unlock("poikilohydric");
         } else if game.evolution.contains_key("chitin") {
             todo!()
         } else {
@@ -373,7 +376,7 @@ impl Structure for Poikilohydric {
     }
 
     fn effect() -> &'static str {
-        todo!()
+        "Increases DNA generation from nucleus"
     }
 
     fn description() -> &'static str {
@@ -381,8 +384,8 @@ impl Structure for Poikilohydric {
     }
 
     fn action(game: &mut GameData) {
-        game.evolution["pokilohydric"] += 1;
-        game.lock("pokilohydric");
+        game.evolution["poikilohydric"] += 1;
+        game.lock("poikilohydric");
         game.unlock("bryophyte");
 
         // TODO: should there be an increment toward final progress?
@@ -403,7 +406,7 @@ impl Structure for Bryophyte {
     }
 
     fn effect() -> &'static str {
-        todo!()
+        "Continue evolving towards sentience"
     }
 
     fn description() -> &'static str {
@@ -439,7 +442,7 @@ impl Structure for Sentience {
     }
 
     fn effect() -> &'static str {
-        todo!()
+        "Complete your evolution by evolving into a species which has achieved sentience."
     }
 
     fn description() -> &'static str {

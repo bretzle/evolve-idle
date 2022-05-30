@@ -51,7 +51,20 @@ impl Application {
             GameStage::Evolution => {
                 // Gain DNA
                 if game.evolution["nucleus"] > 0 && !game.resource["DNA"].is_full() {
-                    todo!()
+                    let mut increment = game.evolution["nucleus"] as i32;
+                    while game.resource["RNA"].amount < (increment * 2) as f32 {
+                        increment -= 1;
+                        if increment <= 0 {
+                            break;
+                        }
+                    }
+                    let rna = increment;
+                    if game.is_unlocked("poikilohydric") && game.evolution["poikilohydric"] > 0 {
+                        increment *= 2;
+                    }
+
+                    game.mod_res("DNA", increment as f32, false, false);
+                    game.mod_res("RNA", -(rna * 2) as f32, false, false);
                 }
 
                 // Gain RNA
@@ -84,10 +97,6 @@ impl Application {
                     && !game.is_unlocked("mitochondria")
                 {
                     game.unlock("mitochondria");
-                } else if game.evolution["mitochondria"] >= 1
-                    && !game.is_unlocked("sexual_reproduction")
-                {
-                    game.unlock("sexual_reproduction");
                 }
             }
             GameStage::Civilization => {}
@@ -153,8 +162,15 @@ impl Application {
         SidePanel::right("right_panel")
             .min_width(width / 4.0)
             .resizable(false)
-            .show(ctx, |_| {
+            .show(ctx, |ui| {
                 // Show message log + queue
+                // ui.horizontal_wrapped(|ui| {
+                ui.label(format!("Res: {:?}", game.resource));
+                ui.separator();
+                ui.label(format!("Evolution: {:?}", game.evolution));
+                ui.separator();
+                ui.label(format!("Unlocks: {:?}", game.unlocks))
+                // })
             });
 
         CentralPanel::default().show(ctx, |ui| {

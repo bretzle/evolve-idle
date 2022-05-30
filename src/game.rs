@@ -1,12 +1,11 @@
+use crate::{
+    structure::Structure,
+    util::{Bounded, MutMap},
+};
 use std::{
     collections::HashSet,
     fmt,
     ops::{AddAssign, SubAssign},
-};
-
-use crate::{
-    structure::Structure,
-    util::{Bounded, MutMap},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -89,6 +88,7 @@ impl GameData {
                 "eukaryotic_cell" => 0,
                 "mitochondria" => 0,
                 "sexual_reproduction" => 0,
+                "poikilohydric" => 0,
             },
             unlocks: set![crate::evolution::Rna::ID,],
             race: Race {
@@ -129,8 +129,9 @@ impl GameData {
         // Should these just be hidden instead?
         self.stage = GameStage::Civilization;
 
-        self.resource.remove("RNA");
-        self.resource.remove("DNA");
+        self.resource.clear();
+        self.evolution.clear();
+        self.unlocks.clear();
 
         // setup race traits
     }

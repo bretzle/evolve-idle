@@ -30,7 +30,6 @@ impl Button {
     }
 
     pub fn build<T: Structure>(self, ui: &mut Ui, game: &mut GameData) {
-        ui.set_enabled(game.afford(&self.cost));
         if self.unlocked {
             let text: WidgetText = self.label.into();
             let frame = ui.visuals().button_frame;
@@ -49,6 +48,7 @@ impl Button {
             let (rect, response) = ui.allocate_exact_size(desired_size, Sense::click());
             response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, text.text()));
 
+            ui.set_enabled(game.afford(&self.cost));
             if ui.is_rect_visible(rect) {
                 let visuals = ui.style().interact(&response);
                 let text_pos = {
@@ -72,26 +72,11 @@ impl Button {
             }
 
             if response.clicked() {
-                game.pay(&self.cost);
+                if T::ID != "dna" {
+                    game.pay(&self.cost);
+                }
                 T::action(game);
             }
-
-            // if response.hovered() {
-            //     ui.child_ui(
-            //         Rect {
-            //             min: [rect.min.x, 0.0].into(),
-            //             max: [rect.min.x + desired_size.x * 1.5, desired_size.y * 1.5].into(),
-            //         },
-            //         Layout::left_to_right(),
-            //     )
-            //     .vertical_centered(|ui| {
-            //         ui.label(T::description());
-            //         ui.separator();
-            //         ui.label("COST");
-            //         ui.separator();
-            //         ui.label(T::effect());
-            //     });
-            // }
 
             response.on_hover_ui(|ui| {
                 ui.label(T::effect());

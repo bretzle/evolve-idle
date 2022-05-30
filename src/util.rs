@@ -1,8 +1,16 @@
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut, IndexMut};
 use std::{collections::HashMap, ops::Index};
 
 pub struct MutMap<K, V>(HashMap<K, V>);
+
+impl<K: Debug, V: Debug> std::fmt::Debug for MutMap<K, V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // f.debug_tuple("MutMap").field(&self.0).finish()
+        write!(f, "{:?}", self.0)
+    }
+}
 
 impl<K, V> MutMap<K, V> {
     pub fn new() -> Self {
