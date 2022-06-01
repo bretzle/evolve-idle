@@ -44,7 +44,14 @@ impl Engine {
         let mut platform = WinitPlatform::init(&mut imgui);
 
         imgui.set_ini_filename(None);
-        imgui.fonts().add_font(&[FontSource::DefaultFontData { config: None }]);
+        imgui.fonts().add_font(&[FontSource::DefaultFontData {
+            config: Some(imgui::FontConfig {
+                oversample_h: 1,
+                pixel_snap_h: true,
+                size_pixels: (13.0 * platform.hidpi_factor()) as f32,
+                ..Default::default()
+            }),
+        }]);
         imgui.io_mut().font_global_scale = (1.0 / platform.hidpi_factor()) as f32;
 
         platform.attach_window(imgui.io_mut(), window.window(), HiDpiMode::Rounded);

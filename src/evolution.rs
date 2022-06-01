@@ -1,20 +1,81 @@
 use crate::{
-    game::{Cost, GameData},
-    structure::Structure,
-    RAND,
+    resource::ResourceType::*,
+    structure::{Cost, Structure},
+    Game,
 };
 
 macro_rules! cost {
-    ( $game:expr, $($resource:literal => $cell:literal, $base:expr, $mult:expr),* ) => {
+    ( $game:expr, $($resource:ident => $cell:tt, $base:expr, $mult:expr),* ) => {
         [$(
-            Cost { resource: $resource, amount: ($game.evolution[$cell] * $mult + $base) as _ }
+            Cost { resource: $resource, amount: ($game.evolution.$cell * $mult + $base) as _ }
         ),*]
     };
 
-    ($( $resource:literal => $amt:expr ),* ) => {
-        [$( Cost { resource:$resource, amount:$amt } ),*]
+    ($( $resource:ident => $amt:expr ),* ) => {
+        [$( Cost { resource:$resource, amount:$amt as _ } ),*]
     }
 }
+
+pub struct Evolution {
+    pub dna_unlocked: bool,
+    pub membrane: i32,
+    pub organelles: i32,
+    pub nucleus: i32,
+    pub eukaryotic_cell: i32,
+    pub mitochondria: i32,
+    pub sexual_reproduction: i32,
+    pub multicellular: i32,
+}
+
+impl Evolution {
+    pub fn new() -> Self {
+        Self {
+            dna_unlocked: false,
+            membrane: -1,
+            organelles: -1,
+            nucleus: -1,
+            eukaryotic_cell: -1,
+            mitochondria: -1,
+            sexual_reproduction: -1,
+            multicellular: -1,
+        }
+    }
+
+    pub(crate) fn is_unlocked(&self, id: &str) -> bool {
+        match id {
+            "rna" => true,
+            "dna" => self.dna_unlocked,
+            "membrane" => self.membrane != -1,
+            "organelles" => self.organelles != -1,
+            "nucleus" => self.nucleus != -1,
+            "eukaryotic_cell" => self.eukaryotic_cell != -1,
+            "mitochondria" => self.mitochondria != -1,
+            "sexual_reproduction" => self.sexual_reproduction != -1,
+            "multicellular" => self.multicellular != -1,
+            _ => unreachable!(),
+        }
+    }
+}
+
+fn pay<T: Structure>(game: &mut Game) -> bool
+where
+    [(); T::SIZE]:,
+{
+    let costs = T::cost(game);
+    if game.check_costs(&costs) {
+        for cost in costs {
+            let Cost { resource, amount } = cost;
+            game.resources[resource].amount -= amount;
+            // TODO: update stats
+        }
+
+        return true;
+    }
+
+    false
+}
+
+//////////////////////////////////////////////
 
 pub struct Rna;
 impl Structure for Rna {
@@ -25,7 +86,7 @@ impl Structure for Rna {
         "RNA"
     }
 
-    fn cost(_: &GameData) -> [Cost; Self::SIZE] {
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
         []
     }
 
@@ -37,9 +98,9 @@ impl Structure for Rna {
         "Form new RNA"
     }
 
-    fn action(game: &mut GameData) {
-        if !game.resource["RNA"].is_full() {
-            game.mod_res("RNA", 1.0, true, false);
+    fn action(game: &mut Game) {
+        if !game.resources.rna.is_full() {
+            game.mod_res(RNA, 1.0, true, false);
         }
     }
 }
@@ -55,25 +116,22 @@ impl Structure for Dna {
         "Form DNA"
     }
 
-    fn cost(_: &GameData) -> [Cost; Self::SIZE] {
-        [Cost {
-            resource: "RNA",
-            amount: 2.0,
-        }]
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
+        cost!(RNA => 2)
     }
 
     fn effect() -> &'static str {
-        "Turn 2 RNA into 1 DNA"
+        "Increase DNA capacity by 10"
     }
 
     fn description() -> &'static str {
-        "TODO"
+        todo!()
     }
 
-    fn action(game: &mut GameData) {
-        if game.resource["RNA"].amount >= 2.0 && !game.resource["DNA"].is_full() {
-            game.mod_res("RNA", -2.0, true, false);
-            game.mod_res("DNA", 1.0, true, false);
+    fn action(game: &mut Game) {
+        if game.resources[RNA].amount >= 2.0 && !game.resources[DNA].is_full() {
+            game.mod_res(RNA, -2.0, true, false);
+            game.mod_res(DNA, 1.0, true, false);
         }
     }
 }
@@ -89,24 +147,27 @@ impl Structure for Membrane {
         "Membrane"
     }
 
-    fn cost(game: &GameData) -> [Cost; Self::SIZE] {
-        cost! {
-            game,
-            "RNA" => "membrane", 2, 2
-        }
+    fn cost(game: &Game) -> [Cost; Self::SIZE] {
+        cost!(game, RNA => membrane, 2, 2)
     }
 
     fn effect() -> &'static str {
-        "Increases RNA capacity by 5" // TODO: this should be dynamic
+        todo!()
     }
 
     fn description() -> &'static str {
-        "Evolve Membranes"
+        todo!()
     }
 
-    fn action(game: &mut GameData) {
-        game.resource["RNA"].max += (game.evolution["mitochondria"] * 5 + 5) as f32;
-        game.evolution["membrane"] += 1;
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.resources.rna.max += if game.evolution.mitochondria != -1 {
+                game.evolution.mitochondria * 5 + 5
+            } else {
+                5
+            } as f32;
+            game.evolution.membrane += 1;
+        }
     }
 }
 
@@ -121,24 +182,26 @@ impl Structure for Organelles {
         "Organelles"
     }
 
-    fn cost(game: &GameData) -> [Cost; Self::SIZE] {
+    fn cost(game: &Game) -> [Cost; Self::SIZE] {
         cost! {
             game,
-            "RNA" => "organelles", 12, 8,
-            "DNA" => "organelles", 4, 4
+            RNA => organelles, 12, 8,
+            DNA => organelles, 4, 4
         }
     }
 
     fn effect() -> &'static str {
-        "Automatically generate 1 RNA"
+        todo!()
     }
 
     fn description() -> &'static str {
-        "Evolve Organelles"
+        todo!()
     }
 
-    fn action(game: &mut GameData) {
-        game.evolution["organelles"] += 1;
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.organelles += 1;
+        }
     }
 }
 
@@ -153,24 +216,27 @@ impl Structure for Nucleus {
         "Nucleus"
     }
 
-    fn cost(game: &GameData) -> [Cost; Self::SIZE] {
+    fn cost(game: &Game) -> [Cost; Self::SIZE] {
+        let multi = game.evolution.multicellular > 0;
         cost! {
             game,
-            "RNA" => "nucleus", 38, 32,
-            "DNA" => "nucleus", 18, 16
+            RNA => nucleus, 38, if multi { 16 } else { 32 },
+            DNA => nucleus, 18, if multi { 12 } else { 16 }
         }
     }
 
     fn effect() -> &'static str {
-        "automatically consume 2 RNA to create 1 DNA"
+        todo!()
     }
 
     fn description() -> &'static str {
-        "Evolve Nucleus"
+        todo!()
     }
 
-    fn action(game: &mut GameData) {
-        game.evolution["nucleus"] += 1;
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.nucleus += 1;
+        }
     }
 }
 
@@ -185,25 +251,28 @@ impl Structure for EukaryoticCell {
         "Eukaryotic Cell"
     }
 
-    fn cost(game: &GameData) -> [Cost; Self::SIZE] {
+    fn cost(game: &Game) -> [Cost; Self::SIZE] {
         cost! {
             game,
-            "RNA" => "eukaryotic_cell", 20, 20,
-            "DNA" => "eukaryotic_cell", 40, 12
+            RNA => eukaryotic_cell, 20, 20,
+            DNA => eukaryotic_cell, 40, 12
         }
     }
 
     fn effect() -> &'static str {
-        "Increase DNA capacity by 10"
+        todo!()
     }
 
     fn description() -> &'static str {
         todo!()
     }
 
-    fn action(game: &mut GameData) {
-        game.evolution["eukaryotic_cell"] += 1;
-        game.resource["DNA"].max += (game.evolution["mitochondria"] * 10 + 10) as f32;
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.eukaryotic_cell += 1;
+            let mitochondria = game.evolution.mitochondria;
+            game.resources.dna.max += if mitochondria != -1 { mitochondria * 10 + 10 } else { 10 } as f32;
+        }
     }
 }
 
@@ -218,32 +287,25 @@ impl Structure for Mitochondria {
         "Mitochondria"
     }
 
-    fn cost(game: &GameData) -> [Cost; Self::SIZE] {
+    fn cost(game: &Game) -> [Cost; Self::SIZE] {
         cost! {
             game,
-            "RNA" => "mitochondria", 75, 50,
-            "DNA" => "mitochondria", 65, 35
+            RNA => mitochondria, 75, 50,
+            DNA => mitochondria, 65, 35
         }
     }
 
     fn effect() -> &'static str {
-        "Increases the effect of membranes and eukaryotic cells"
+        todo!()
     }
 
     fn description() -> &'static str {
         todo!()
     }
 
-    fn action(game: &mut GameData) {
-        game.evolution["mitochondria"] += 1;
-        for _ in 0..game.evolution["membrane"] {
-            game.resource["RNA"].max += 5.0;
-        }
-        for _ in 0..game.evolution["eukaryotic_cell"] {
-            game.resource["DNA"].max += 10.0;
-        }
-        if game.evolution["sexual_reproduction"] == 0 {
-            game.unlock("sexual_reproduction");
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.mitochondria += 1;
         }
     }
 }
@@ -259,212 +321,62 @@ impl Structure for SexualReproduction {
         "Sexual Reproduction"
     }
 
-    fn cost(_: &GameData) -> [Cost; Self::SIZE] {
-        cost!("DNA" => 150.0)
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
+        cost!(DNA => 175)
     }
 
     fn effect() -> &'static str {
-        "Increases RNA generation from organelles"
+        todo!()
     }
 
     fn description() -> &'static str {
         todo!()
     }
 
-    fn action(game: &mut GameData) {
-        game.evolution["sexual_reproduction"] += 1;
-        game.lock("sexual_reproduction");
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.sexual_reproduction += 1;
+            // TODO: only allow to be bought once
 
-        game.unlock("phagocytosis");
-        game.unlock("chloroplasts");
-        game.unlock("chitin");
-
-        // TODO: should there be an increment toward final progress?
-    }
-}
-
-//////////////////////////////////////////////
-
-pub struct Chloroplasts;
-impl Structure for Chloroplasts {
-    const ID: &'static str = "chloroplasts";
-    const SIZE: usize = 1;
-
-    fn title() -> &'static str {
-        "Chloroplasts"
-    }
-
-    fn cost(_: &GameData) -> [Cost; Self::SIZE] {
-        cost!("DNA" => 175.0)
-    }
-
-    fn effect() -> &'static str {
-        "Evolve in the direction of the plant kingdom. This is a major evolutionary fork."
-    }
-
-    fn description() -> &'static str {
-        todo!()
-    }
-
-    fn action(game: &mut GameData) {
-        game.evolution["chloroplasts"] += 1;
-
-        game.lock("phagocytosis");
-        game.lock("chloroplasts");
-        game.lock("chitin");
-
-        game.unlock("multicellular");
-
-        // TODO: should there be an increment toward final progress?
-    }
-}
-
-//////////////////////////////////////////////
-
-pub struct Multicellular;
-impl Structure for Multicellular {
-    const ID: &'static str = "multicellular";
-    const SIZE: usize = 1;
-
-    fn title() -> &'static str {
-        "Multicellular"
-    }
-
-    fn cost(_: &GameData) -> [Cost; Self::SIZE] {
-        cost!("DNA" => 200.0)
-    }
-
-    fn effect() -> &'static str {
-        "Decreases cost of producing new nucleus."
-    }
-
-    fn description() -> &'static str {
-        todo!()
-    }
-
-    fn action(game: &mut GameData) {
-        game.evolution["multicellular"] += 1;
-        game.lock("multicellular");
-
-        if game.evolution.contains_key("phagocytosis") {
-            todo!()
-        } else if game.evolution.contains_key("chloroplasts") {
-            game.unlock("poikilohydric");
-        } else if game.evolution.contains_key("chitin") {
-            todo!()
-        } else {
-            unreachable!()
-        }
-
-        // TODO: should there be an increment toward final progress?
-    }
-}
-
-//////////////////////////////////////////////
-
-pub struct Poikilohydric;
-impl Structure for Poikilohydric {
-    const ID: &'static str = "poikilohydric";
-    const SIZE: usize = 1;
-
-    fn title() -> &'static str {
-        "Poikilohydric"
-    }
-
-    fn cost(_: &GameData) -> [Cost; Self::SIZE] {
-        cost!("DNA" => 230.0)
-    }
-
-    fn effect() -> &'static str {
-        "Increases DNA generation from nucleus"
-    }
-
-    fn description() -> &'static str {
-        todo!()
-    }
-
-    fn action(game: &mut GameData) {
-        game.evolution["poikilohydric"] += 1;
-        game.lock("poikilohydric");
-        game.unlock("bryophyte");
-
-        // TODO: should there be an increment toward final progress?
-    }
-}
-
-pub struct Bryophyte;
-impl Structure for Bryophyte {
-    const ID: &'static str = "bryophyte";
-    const SIZE: usize = 1;
-
-    fn title() -> &'static str {
-        "Bryophyte"
-    }
-
-    fn cost(_: &GameData) -> [Cost; Self::SIZE] {
-        cost!("DNA" => 260.0)
-    }
-
-    fn effect() -> &'static str {
-        "Continue evolving towards sentience"
-    }
-
-    fn description() -> &'static str {
-        todo!()
-    }
-
-    fn action(game: &mut GameData) {
-        game.evolution["bryophyte"] += 1;
-        game.lock("bryophyte");
-        game.unlock("sentience");
-
-        println!("TODO: Unlock Entish, Cacti, Pinguicula");
-        // TODO: should there be an increment toward final progress?
-    }
-}
-
-//////////////////////////////////////////////
-
-pub struct Sentience;
-impl Structure for Sentience {
-    const ID: &'static str = "sentience";
-    const SIZE: usize = 2;
-
-    fn title() -> &'static str {
-        "Sentience"
-    }
-
-    fn cost(_: &GameData) -> [Cost; Self::SIZE] {
-        cost! {
-            "RNA" => 300.0,
-            "DNA" => 300.0
+            // TODO: allow phagocytosis, chloroplasts, chitin to be purchased
         }
     }
-
-    fn effect() -> &'static str {
-        "Complete your evolution by evolving into a species which has achieved sentience."
-    }
-
-    fn description() -> &'static str {
-        todo!()
-    }
-
-    fn action(game: &mut GameData) {
-        game.evolution["sentience"] += 1;
-        game.lock("sentience");
-
-        let mut races = vec![];
-
-        if game.evolution.contains_key("chloroplasts") {
-            races.extend(["entish", "cacti", "pinguicula"]);
-        } else {
-            todo!()
-        }
-
-        game.race.species = races[RAND.usize(0..races.len())];
-        // TODO: Check that player hasn't already played as that species
-
-        // TODO: Enter next game stage!
-        game.enter_sentience();
-    }
 }
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
