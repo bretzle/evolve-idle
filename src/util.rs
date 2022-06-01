@@ -1,113 +1,93 @@
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::ops::{Deref, DerefMut, IndexMut};
-use std::{collections::HashMap, ops::Index};
+use imgui::sys::*;
+use std::ptr;
 
-pub struct MutMap<K, V>(HashMap<K, V>);
+// Code adapted from https://github.com/ocornut/imgui/issues/3518
+struct StatusBar;
 
-impl<K: Debug, V: Debug> std::fmt::Debug for MutMap<K, V> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // f.debug_tuple("MutMap").field(&self.0).finish()
-        write!(f, "{:?}", self.0)
+impl StatusBar {
+    #[must_use]
+    unsafe fn begin() -> Option<StatusBarToken> {
+        let name = b"##MainStatusBar";
+
+        let g = igGetCurrentContext();
+        let viewport = *(*g).Viewports.Data;
+        let mut menu_bar_window = igFindWindowByName(name.as_ptr().cast());
+
+        // For the main menu bar, which cannot be moved, we honor g.Style.DisplaySafeAreaPadding to ensure text can be visible on a TV set.
+        (*g).NextWindowData.MenuBarOffsetMinVal = ImVec2 {
+            x: (*g).Style.DisplaySafeAreaPadding.x,
+            y: f32::max((*g).Style.DisplaySafeAreaPadding.y - (*g).Style.FramePadding.y, 0.0),
+        };
+
+        fn add(a: ImVec2, b: ImVec2) -> ImVec2 {
+            ImVec2 { x: b.x, y: a.y - b.y }
+        }
+
+        // Get our rectangle at the bottom of the work area
+        //__debugbreak();
+        if menu_bar_window.is_null() || (*menu_bar_window).BeginCount == 0 {
+            // Set window position
+            // We don't attempt to calculate our height ahead, as it depends on the per-viewport font size. However menu-bar will affect the minimum window size so we'll get the right height.
+            let menu_bar_pos = add((*viewport)._ImGuiViewport.Size, (*viewport).WorkOffsetMin);
+            let menu_bar_size = ImVec2 {
+                x: (*viewport)._ImGuiViewport.Size.x - (*viewport).WorkOffsetMin.x + (*viewport).WorkOffsetMax.x,
+                y: 1.0,
+            };
+            igSetNextWindowPos(menu_bar_pos, 0, ImVec2::default()); // verify operator overloading
+            igSetNextWindowSize(menu_bar_size, 0);
+        }
+
+        // Create window
+        igSetNextWindowViewport((*viewport)._ImGuiViewport.ID); // Enforce viewport so we don't create our own viewport when ImGuiConfigFlags_ViewportsNoMerge is set.
+
+        igPushStyleVarFloat(ImGuiStyleVar_WindowRounding as i32, 0.0);
+        igPushStyleVarVec2(ImGuiStyleVar_WindowMinSize as i32, ImVec2 { x: 0.0, y: 0.0 }); // Lift normal size constraint, however the presence of a menu-bar will give us the minimum height we want.
+        let window_flags = ImGuiWindowFlags_NoDocking
+            | ImGuiWindowFlags_NoTitleBar
+            | ImGuiWindowFlags_NoResize
+            | ImGuiWindowFlags_NoMove
+            | ImGuiWindowFlags_NoScrollbar
+            | ImGuiWindowFlags_NoSavedSettings
+            | ImGuiWindowFlags_MenuBar;
+
+        let is_open = igBegin(name.as_ptr().cast(), ptr::null_mut(), window_flags as i32) && igBeginMenuBar();
+        igPopStyleVar(2);
+
+        // Report our size into work area (for next frame) using actual window size
+        menu_bar_window = igGetCurrentWindow();
+        if (*menu_bar_window).BeginCount == 1 {
+            (*viewport).WorkOffsetMin.y += (*menu_bar_window).Size.y;
+        }
+
+        (*g).NextWindowData.MenuBarOffsetMinVal = ImVec2 { x: 0.0, y: 0.0 };
+        if !is_open {
+            igEnd();
+            return None;
+        }
+
+        return Some(StatusBarToken);
     }
 }
 
-impl<K, V> MutMap<K, V> {
-    pub fn new() -> Self {
-        Self(HashMap::new())
-    }
+pub fn statusbar<R, F: FnOnce() -> R>(f: F) -> Option<R> {
+    unsafe { StatusBar::begin().map(|_| f()) }
 }
 
-impl<K, V> Index<K> for MutMap<K, V>
-where
-    K: Eq + Hash,
-{
-    type Output = V;
+pub struct StatusBarToken;
 
-    #[inline]
-    fn index(&self, key: K) -> &V {
-        self.0.get(&key).expect("no entry found for key")
-    }
-}
+impl Drop for StatusBarToken {
+    fn drop(&mut self) {
+        unsafe {
+            igEndMenuBar();
 
-impl<K, V> IndexMut<K> for MutMap<K, V>
-where
-    K: Eq + Hash,
-{
-    #[inline]
-    fn index_mut(&mut self, key: K) -> &mut Self::Output {
-        self.0.entry(key).or_insert(unsafe { std::mem::zeroed() })
-    }
-}
+            // When the user has left the menu layer (typically: closed menus through activation of an item), we restore focus to the previous window
+            // FIXME: With this strategy we won't be able to restore a NULL focus.
+            let g = igGetCurrentContext();
+            if (*g).CurrentWindow == (*g).NavWindow && (*g).NavLayer == ImGuiNavLayer_Main && !(*g).NavAnyRequest {
+                igFocusTopMostWindowUnderOne((*g).NavWindow, ptr::null_mut());
+            }
 
-impl<K, V> Deref for MutMap<K, V> {
-    type Target = HashMap<K, V>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<K, V> DerefMut for MutMap<K, V> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-//////////////////////////////
-
-#[derive(Debug, Clone, Copy)]
-pub struct Bounded {
-    pub cur: f64,
-    pub max: f64,
-}
-
-impl Bounded {
-    pub fn new<A: Into<f64>, B: Into<f64>>(cur: A, max: B) -> Self {
-        Self {
-            cur: cur.into(),
-            max: max.into(),
+            igEnd();
         }
     }
-
-    pub fn get(&self) -> f64 {
-        self.cur
-    }
-
-    pub fn modify<F: Fn(&mut f64)>(&mut self, f: F) {
-        f(&mut self.cur);
-        self.cur = self.cur.min(self.max);
-    }
 }
-
-impl PartialEq<f64> for Bounded {
-    fn eq(&self, other: &f64) -> bool {
-        self.cur == *other
-    }
-}
-
-impl PartialOrd<f64> for Bounded {
-    fn partial_cmp(&self, other: &f64) -> Option<std::cmp::Ordering> {
-        self.cur.partial_cmp(other)
-    }
-}
-
-///////////////////////////////////
-
-pub struct Rng(fastrand::Rng);
-
-impl Rng {
-    pub const fn new() -> Self {
-        Self(gemstone::mem::zero())
-    }
-}
-
-impl Deref for Rng {
-    type Target = fastrand::Rng;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-unsafe impl Sync for Rng {}

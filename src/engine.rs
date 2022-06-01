@@ -16,15 +16,15 @@ pub(crate) struct Engine {
     event_loop: EventLoop<()>,
     window: WindowedContext<PossiblyCurrent>,
     platform: WinitPlatform,
-    imgui: imgui::Context,
+    pub imgui: imgui::Context,
     renderer: AutoRenderer,
     last_frame: Instant,
-    clockwork: Clockwork<Game>,
+    pub clockwork: Clockwork<Game>,
     game: Game,
 }
 
 impl Engine {
-    pub fn new(title: &str, [width, height]: [i32; 2], game: Game) -> Self {
+    pub fn new(title: &str, [width, height]: [i32; 2]) -> Self {
         let event_loop = EventLoop::new();
         let window = unsafe {
             ContextBuilder::new()
@@ -51,19 +51,18 @@ impl Engine {
 
         let gl = unsafe { glow::Context::from_loader_function(|s| window.get_proc_address(s).cast()) };
 
-        let mut clockwork = Clockwork::new();
-        game.setup_tasks(&mut clockwork);
-
-        Self {
+        let mut engine = Self {
             event_loop,
             window,
             platform,
             renderer: AutoRenderer::initialize(gl, &mut imgui).unwrap(),
             imgui,
             last_frame: Instant::now(),
-            clockwork,
-            game,
-        }
+            clockwork: Clockwork::new(),
+            game: gemstone::mem::zero(),
+        };
+        engine.game = Game::new(&mut engine);
+        engine
     }
 
     pub fn run(self) -> ! {
@@ -94,7 +93,7 @@ impl Engine {
                     unsafe { renderer.gl_context().clear(glow::COLOR_BUFFER_BIT) };
 
                     let ui = imgui.frame();
-                    game.draw(ui);
+                    game.update(ui);
 
                     platform.prepare_render(ui, window.window());
                     let draw_data = imgui.render();

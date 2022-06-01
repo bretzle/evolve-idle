@@ -2,47 +2,127 @@
 #![allow(incomplete_features)]
 #![warn(clippy::all)]
 
-use std::time::Duration;
-
-use clockwork::Clockwork;
 use engine::Engine;
+use fastrand::Rng;
 use imgui::Ui;
+use race::{Race, Species};
+use resource::Resources;
+use std::time::Duration;
 
 mod clockwork;
 mod engine;
+mod race;
+mod resource;
+mod util;
 
 fn main() {
-    Engine::new("Evolve", [1024, 768], Game::new()).run()
+    Engine::new("Evolve", [1024, 768]).run()
 }
 
-struct Game {}
+#[allow(dead_code)] // remove this
+struct Game {
+    seed: u64,
+    resources: Resources,
+    evolution: (),
+    tech: (),
+    city: (),
+    civic: (),
+    race: Race,
+
+    rng: Rng,
+}
 
 impl Game {
-    pub fn new() -> Self {
-        Self {}
-    }
+    pub fn new(engine: &mut Engine) -> Self {
+        let Engine { clockwork, .. } = engine;
 
-    pub fn setup_tasks(&self, clockwork: &mut Clockwork<Self>) {
         clockwork.every(Duration::from_millis(250)).run(Game::fast_loop);
         clockwork.every(Duration::from_millis(1000)).run(Game::mid_loop);
         clockwork.every(Duration::from_millis(5000)).run(Game::long_loop);
+
+        Self {
+            seed: 1,
+            resources: Resources::new(),
+            evolution: (),
+            tech: (),
+            city: (),
+            civic: (),
+            race: Race::default(),
+
+            rng: Rng::with_seed(1),
+        }
     }
 
-    fn fast_loop(&mut self) {}
+    // Runs every 0.25 seconds
+    fn fast_loop(&mut self) {
+        if matches!(self.race.species, Species::Protoplasm) {
+            //
+        } else {
+            todo!()
+        }
+    }
 
-    fn mid_loop(&mut self) {}
+    // Runs every 1 second
+    fn mid_loop(&mut self) {
+        // update resource caps
+        if matches!(self.race.species, Species::Protoplasm) {
+            //
+        } else {
+            todo!()
+        }
+    }
 
-    fn long_loop(&mut self) {}
+    // Runs every 5 seconds
+    fn long_loop(&mut self) {
+        // autosave
+    }
 
-    pub fn draw(&mut self, ui: &mut Ui) {
-        ui.show_demo_window(&mut true)
+    pub fn update(&mut self, ui: &mut Ui) {
+        ui.main_menu_bar(|| ui.text("top"));
+        util::statusbar(|| ui.text("bottom"));
+
+        let (width, height, pos) = unsafe {
+            let viewport = *imgui::sys::igGetMainViewport();
+            let size = viewport.WorkSize;
+            let pos = viewport.WorkPos;
+            let offset = viewport.Size.y - viewport.WorkSize.y;
+            (size.x, size.y - offset, pos)
+        };
+
+        ui.window("left panel")
+            .size([width / 4.0, height], imgui::Condition::Always)
+            .position([pos.x, pos.y], imgui::Condition::Always)
+            .focused(false)
+            .title_bar(false)
+            .movable(false)
+            .resizable(false)
+            .draw_background(false)
+            .build(|| {});
+
+        ui.window("main panel")
+            .size([width / 2.0, height], imgui::Condition::Always)
+            .position([width / 4.0, pos.y], imgui::Condition::Always)
+            .focused(false)
+            .title_bar(false)
+            .movable(false)
+            .resizable(false)
+            .draw_background(false)
+            .build(|| {
+                ui.checkbox("test", &mut false);
+                ui.menu_bar(|| ui.menu("hello", || {}));
+            });
+
+        ui.window("right panel")
+            .size([width / 4.0, height], imgui::Condition::Always)
+            .position([3.0 * width / 4.0, pos.y], imgui::Condition::Always)
+            .focused(false)
+            .title_bar(false)
+            .movable(false)
+            .resizable(false)
+            .draw_background(false)
+            .build(|| {});
     }
 }
-
-// pub struct Application {
-//     game: GameData,
-//     last: Instant,
-// }
 
 // impl Application {
 //     pub fn new(_: &CreationContext<'_>) -> Self {
