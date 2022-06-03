@@ -1,10 +1,23 @@
 use enum_iterator::Sequence;
-use std::ops::{Index, IndexMut};
+use std::{
+    fmt,
+    ops::{Index, IndexMut},
+};
 
 #[derive(Clone, Copy, Sequence)]
 pub enum ResourceType {
     RNA,
     DNA,
+}
+
+impl fmt::Display for ResourceType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            ResourceType::RNA => "RNA",
+            ResourceType::DNA => "DNA",
+        };
+        write!(f, "{name}")
+    }
 }
 
 pub struct Resource {

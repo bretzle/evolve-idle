@@ -50,7 +50,7 @@ impl Evolution {
             "nucleus" => self.nucleus != -1,
             "eukaryotic_cell" => self.eukaryotic_cell != -1,
             "mitochondria" => self.mitochondria != -1,
-            "sexual_reproduction" => self.sexual_reproduction != -1,
+            "sexual_reproduction" => self.sexual_reproduction != -1 && self.sexual_reproduction != 1,
             "multicellular" => self.multicellular != -1,
             _ => unreachable!(),
         }
@@ -90,8 +90,8 @@ impl Structure for Rna {
         []
     }
 
-    fn effect() -> &'static str {
-        "Creates 1 RNA"
+    fn effect(_: &Game) -> String {
+        "Creates 1 RNA".to_string()
     }
 
     fn description() -> &'static str {
@@ -102,6 +102,10 @@ impl Structure for Rna {
         if !game.resources.rna.is_full() {
             game.mod_res(RNA, 1.0, true, false);
         }
+    }
+
+    fn tooltip(ui: &imgui::Ui, game: &Game) {
+        ui.tooltip_text(Self::effect(game));
     }
 }
 
@@ -120,12 +124,12 @@ impl Structure for Dna {
         cost!(RNA => 2)
     }
 
-    fn effect() -> &'static str {
-        "Increase DNA capacity by 10"
+    fn effect(_: &Game) -> String {
+        "Turn 2 RNA into 1 DNA".to_string()
     }
 
     fn description() -> &'static str {
-        todo!()
+        "Creates a new strand of DNA"
     }
 
     fn action(game: &mut Game) {
@@ -151,12 +155,17 @@ impl Structure for Membrane {
         cost!(game, RNA => membrane, 2, 2)
     }
 
-    fn effect() -> &'static str {
-        todo!()
+    fn effect(game: &Game) -> String {
+        let effect = if game.evolution.mitochondria != -1 {
+            game.evolution.mitochondria * 5 + 5
+        } else {
+            5
+        };
+        format!("Increases RNA capacity by {effect}")
     }
 
     fn description() -> &'static str {
-        todo!()
+        "Evolve Membranes"
     }
 
     fn action(game: &mut Game) {
@@ -190,12 +199,16 @@ impl Structure for Organelles {
         }
     }
 
-    fn effect() -> &'static str {
-        todo!()
+    fn effect(game: &Game) -> String {
+        let mut rna = 1;
+        if game.evolution.sexual_reproduction > 0 {
+            rna += 1;
+        }
+        format!("Automatically generate {rna} RNA")
     }
 
     fn description() -> &'static str {
-        todo!()
+        "Evolve Organelles"
     }
 
     fn action(game: &mut Game) {
@@ -225,12 +238,14 @@ impl Structure for Nucleus {
         }
     }
 
-    fn effect() -> &'static str {
-        todo!()
+    fn effect(_: &Game) -> String {
+        // TODO: bilateral_symmetry, poikilohydric, spores increase this
+        let dna = if false { 2 } else { 1 };
+        format!("Automatically consume 2 RNA to create {dna} DNA")
     }
 
     fn description() -> &'static str {
-        todo!()
+        "Evolve Nucleus"
     }
 
     fn action(game: &mut Game) {
@@ -259,12 +274,17 @@ impl Structure for EukaryoticCell {
         }
     }
 
-    fn effect() -> &'static str {
-        todo!()
+    fn effect(game: &Game) -> String {
+        let effect = if game.evolution.mitochondria != -1 {
+            game.evolution.mitochondria * 10 + 10
+        } else {
+            10
+        };
+        format!("Increases DNA capacity by {effect}")
     }
 
     fn description() -> &'static str {
-        todo!()
+        "Evolve Eukaryotic Cell"
     }
 
     fn action(game: &mut Game) {
@@ -295,12 +315,12 @@ impl Structure for Mitochondria {
         }
     }
 
-    fn effect() -> &'static str {
-        todo!()
+    fn effect(_: &Game) -> String {
+        "Increases the effect of membranes and eukaryotic cells".to_string()
     }
 
     fn description() -> &'static str {
-        todo!()
+        "Evolve Mitochondria"
     }
 
     fn action(game: &mut Game) {
@@ -322,15 +342,15 @@ impl Structure for SexualReproduction {
     }
 
     fn cost(_: &Game) -> [Cost; Self::SIZE] {
-        cost!(DNA => 175)
+        cost!(DNA => 150)
     }
 
-    fn effect() -> &'static str {
-        todo!()
+    fn effect(_: &Game) -> String {
+        "Increases RNA generation from organelles".to_string()
     }
 
     fn description() -> &'static str {
-        todo!()
+        "Evolve Sexual Reproduction"
     }
 
     fn action(game: &mut Game) {

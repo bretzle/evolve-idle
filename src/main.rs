@@ -90,7 +90,7 @@ impl Game {
             let organelles = self.evolution.organelles;
             if organelles != -1 {
                 let mut mult = 1;
-                if self.evolution.sexual_reproduction != -1 {
+                if self.evolution.sexual_reproduction > 0 {
                     mult += 1;
                 }
 
@@ -115,7 +115,7 @@ impl Game {
                 evolution.eukaryotic_cell = 0;
             } else if evolution.eukaryotic_cell >= 1 && !evolution.is_unlocked("mitochondria") {
                 evolution.mitochondria = 0;
-            } else if evolution.mitochondria >= 1 && !evolution.is_unlocked("sexual_reproduction") {
+            } else if evolution.mitochondria >= 1 && evolution.sexual_reproduction == -1 {
                 evolution.sexual_reproduction = 0;
             }
         } else {
@@ -135,7 +135,28 @@ impl Game {
     fn mid_loop(&mut self) {
         // update resource caps
         if matches!(self.race.species, Species::Protoplasm) {
-            //
+            let base = 100.0;
+            let mut rna_cap = base;
+            let mut dna_cap = base;
+            if self.evolution.membrane != -1 {
+                let effect = if self.evolution.mitochondria != -1 {
+                    self.evolution.mitochondria * 5 + 5
+                } else {
+                    5
+                };
+                rna_cap += (self.evolution.membrane * effect) as f32;
+            }
+            if self.evolution.eukaryotic_cell != -1 {
+                let effect = if self.evolution.mitochondria != -1 {
+                    self.evolution.mitochondria * 10 + 10
+                } else {
+                    10
+                };
+                dna_cap += (self.evolution.eukaryotic_cell * effect) as f32;
+            }
+
+            self.resources.rna.max = rna_cap;
+            self.resources.dna.max = dna_cap;
         } else {
             todo!()
         }
@@ -170,30 +191,19 @@ impl Game {
             .resizable(false)
             .draw_background(false)
             .build(|| {
-                // ui.text(format!("RNA: {}", self.resources.rna.amount));
-                // ui.text(format!("DNA: {}", self.resources.dna.amount));
-
                 let size = ui.content_region_avail();
                 if let Some(_) = ui.begin_table_with_sizing("res table", 3, TableFlags::ROW_BG, size, 0.0) {
-                    ui.table_next_column();
-                    ui.text("RNA");
-                    ui.table_next_column();
-                    util::right_align(
-                        ui,
-                        format!("{}/{}", self.resources.rna.amount.floor(), self.resources.rna.max),
-                    );
-                    ui.table_next_column();
-                    util::right_align(ui, format!("{} /s", self.resources.rna.diff));
-
-                    ui.table_next_column();
-                    ui.text("DNA");
-                    ui.table_next_column();
-                    util::right_align(
-                        ui,
-                        format!("{}/{}", self.resources.dna.amount.floor(), self.resources.dna.max),
-                    );
-                    ui.table_next_column();
-                    util::right_align(ui, format!("{} /s", self.resources.dna.diff));
+                    all::<ResourceType>().for_each(|res| {
+                        let resource = &self.resources[res];
+                        if resource.display {
+                            ui.table_next_column();
+                            ui.text(format!("{res}"));
+                            ui.table_next_column();
+                            util::right_align(ui, format!("{}/{}", resource.amount.floor(), resource.max));
+                            ui.table_next_column();
+                            util::right_align(ui, format!("{} /s", resource.diff));
+                        }
+                    });
                 }
             });
 
@@ -208,17 +218,16 @@ impl Game {
             .build(|| {
                 if let Some(_tab) = ui.tab_bar("tabs") {
                     if let Some(_tab) = ui.tab_item("Evolve") {
-                        use structure::construct;
                         self.actions = 0;
 
-                        construct::<evolution::Rna>(ui, self);
-                        construct::<evolution::Dna>(ui, self);
-                        construct::<evolution::Membrane>(ui, self);
-                        construct::<evolution::Organelles>(ui, self);
-                        construct::<evolution::Nucleus>(ui, self);
-                        construct::<evolution::EukaryoticCell>(ui, self);
-                        construct::<evolution::Mitochondria>(ui, self);
-                        construct::<evolution::SexualReproduction>(ui, self);
+                        construct!(evolution::Rna, ui, self);
+                        construct!(evolution::Dna, ui, self);
+                        construct!(evolution::Membrane, ui, self.evolution.membrane);
+                        construct!(evolution::Organelles, ui, self.evolution.organelles);
+                        construct!(evolution::Nucleus, ui, self.evolution.nucleus);
+                        construct!(evolution::EukaryoticCell, ui, self.evolution.eukaryotic_cell);
+                        construct!(evolution::Mitochondria, ui, self.evolution.mitochondria);
+                        construct!(evolution::SexualReproduction, ui, self.evolution.sexual_reproduction);
 
                         // // construct::<evolution::Phagocytosis>(ui, game);
                         // construct::<evolution::Chloroplasts>(ui, self);
@@ -243,8 +252,6 @@ impl Game {
             .resizable(false)
             .draw_background(false)
             .build(|| {});
-
-        ui.show_demo_window(&mut true);
     }
 }
 
@@ -330,103 +337,3 @@ impl Game {
         test
     }
 }
-
-// impl Application {
-
-//     fn update(&mut self) {
-//         let secs_since_last_update = self.last.elapsed().as_secs_f64();
-//         self.last = Instant::now();
-
-//         let game = &mut self.game;
-
-//         match game.stage {
-//             GameStage::Evolution => {
-//                 // Gain DNA
-//                 if game.evolution["nucleus"] > 0 && !game.resource["DNA"].is_full() {
-//                     let mut increment = game.evolution["nucleus"] as i32;
-//                     while game.resource["RNA"].amount < (increment * 2) as f32 {
-//                         increment -= 1;
-//                         if increment <= 0 {
-//                             break;
-//                         }
-//                     }
-//                     let rna = increment;
-//                     if game.is_unlocked("poikilohydric") && game.evolution["poikilohydric"] > 0 {
-//                         increment *= 2;
-//                     }
-
-//                     game.mod_res("DNA", increment as f32, false, false);
-//                     game.mod_res("RNA", -(rna * 2) as f32, false, false);
-//                 }
-
-//                 // Gain RNA
-//                 if game.evolution["organelles"] > 0 {
-//                     let mut rna_multiplier = 1;
-//                     if game.evolution["sexual_reproduction"] > 0 {
-//                         rna_multiplier += 1;
-//                     }
-//                     game.mod_res(
-//                         "RNA",
-//                         game.evolution["organelles"] * rna_multiplier,
-//                         false,
-//                         false,
-//                     );
-//                 }
-
-//                 // Detect new unlocks
-//                 if game.resource["RNA"].amount >= 2.0 && !game.is_unlocked("dna") {
-//                     game.unlock("dna");
-//                     game.resource["DNA"].display = true;
-//                 } else if game.resource["RNA"].amount >= 10.0 && !game.is_unlocked("membrane") {
-//                     game.unlock("membrane");
-//                 } else if game.resource["DNA"].amount >= 4.0 && !game.is_unlocked("organelles") {
-//                     game.unlock("organelles");
-//                 } else if game.evolution["organelles"] >= 2 && !game.is_unlocked("nucleus") {
-//                     game.unlock("nucleus");
-//                 } else if game.evolution["nucleus"] >= 1 && !game.is_unlocked("eukaryotic_cell") {
-//                     game.unlock("eukaryotic_cell");
-//                 } else if game.evolution["eukaryotic_cell"] >= 1
-//                     && !game.is_unlocked("mitochondria")
-//                 {
-//                     game.unlock("mitochondria");
-//                 }
-//             }
-//             GameStage::Civilization => {}
-//         }
-//     }
-
-//     fn draw(&mut self, ctx: &Context, _frame: &mut Frame) {
-//         let Self { game, .. } = self;
-//         let width = ctx.available_rect().width();
-
-//         CentralPanel::default().show(ctx, |ui| {
-//             match game.stage {
-//                 GameStage::Evolution => {
-//                     ui.horizontal_wrapped(|ui| {
-//                         use structure::construct;
-
-//                         construct::<evolution::Rna>(ui, game);
-//                         construct::<evolution::Dna>(ui, game);
-//                         construct::<evolution::Membrane>(ui, game);
-//                         construct::<evolution::Organelles>(ui, game);
-//                         construct::<evolution::Nucleus>(ui, game);
-//                         construct::<evolution::EukaryoticCell>(ui, game);
-//                         construct::<evolution::Mitochondria>(ui, game);
-//                         construct::<evolution::SexualReproduction>(ui, game);
-
-//                         // construct::<evolution::Phagocytosis>(ui, game);
-//                         construct::<evolution::Chloroplasts>(ui, game);
-//                         // construct::<evolution::Chitin>(ui, game);
-
-//                         construct::<evolution::Multicellular>(ui, game);
-//                         construct::<evolution::Poikilohydric>(ui, game);
-//                         construct::<evolution::Bryophyte>(ui, game);
-
-//                         construct::<evolution::Sentience>(ui, game);
-//                     });
-//                 }
-//                 GameStage::Civilization => {}
-//             }
-//         });
-//     }
-// }
