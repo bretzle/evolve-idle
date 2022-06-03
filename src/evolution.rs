@@ -1,3 +1,4 @@
+use serde::{Serialize, Deserialize};
 use crate::{
     resource::ResourceType::*,
     structure::{Cost, Structure},
@@ -16,6 +17,7 @@ macro_rules! cost {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Evolution {
     pub dna_unlocked: bool,
     pub membrane: i32,

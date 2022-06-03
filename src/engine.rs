@@ -114,6 +114,7 @@ impl Engine {
                     event: WindowEvent::CloseRequested,
                     ..
                 } => {
+					game.on_exit();
                     *control_flow = ControlFlow::Exit;
                 }
                 event => {

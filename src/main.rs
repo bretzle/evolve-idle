@@ -9,7 +9,8 @@ use fastrand::Rng;
 use imgui::{TableFlags, Ui};
 use race::{Race, Species};
 use resource::{ResourceType, Resources};
-use std::time::Duration;
+use serde::{Deserialize, Serialize};
+use std::{time::Duration, fs::File};
 use structure::Cost;
 
 mod clockwork;
@@ -27,6 +28,7 @@ fn main() {
 }
 
 #[allow(dead_code)] // remove this
+#[derive(Serialize, Deserialize)]
 struct Game {
     seed: u64,
     resources: Resources,
@@ -36,9 +38,11 @@ struct Game {
     civic: (),
     race: Race,
 
+    #[serde(skip)]
     rng: Rng,
 
     // Ui stuff
+	#[serde(skip)]
     actions: usize,
 }
 
@@ -50,7 +54,7 @@ impl Game {
         clockwork.every(Duration::from_millis(1000)).run(Game::mid_loop);
         clockwork.every(Duration::from_millis(5000)).run(Game::long_loop);
 
-        Self {
+        Self::load_save().unwrap_or_else(|| Self {
             seed: 1,
             resources: Resources::new(),
             evolution: Evolution::new(),
@@ -61,8 +65,28 @@ impl Game {
 
             rng: Rng::with_seed(1),
             actions: 0,
-        }
+        })
     }
+
+    fn load_save() -> Option<Self> {
+        let content = match std::fs::read_to_string("save.json") {
+            Ok(content) => content,
+            Err(_) => return None,
+        };
+
+        serde_json::from_str(&content).ok()
+    }
+
+	fn save(&self) {
+		let x = serde_json::to_vec_pretty(self).unwrap();
+		let mut file = File::create("save.json").unwrap();
+		use std::io::Write;
+		file.write(&x).unwrap();
+	}
+
+	fn on_exit(&self) {
+		self.save();
+	}
 
     // Runs every 0.25 seconds
     fn fast_loop(&mut self) {
@@ -165,6 +189,7 @@ impl Game {
     // Runs every 5 seconds
     fn long_loop(&mut self) {
         // autosave
+		self.save();
     }
 
     pub fn update(&mut self, ui: &mut Ui) {

@@ -1,4 +1,5 @@
 use enum_iterator::Sequence;
+use serde::{Serialize, Deserialize};
 use std::{
     fmt,
     ops::{Index, IndexMut},
@@ -20,6 +21,7 @@ impl fmt::Display for ResourceType {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Resource {
     pub amount: f32,
     pub max: f32,
@@ -47,6 +49,7 @@ impl Resource {
 }
 
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 pub struct Resources {
     pub rna: Resource,
     pub dna: Resource,

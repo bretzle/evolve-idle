@@ -1,8 +1,11 @@
-#[derive(PartialEq)]
+use serde::{Serialize, Deserialize};
+
+#[derive(PartialEq, Serialize, Deserialize)]
 pub enum Species {
     Protoplasm,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Race {
     pub species: Species,
 }
