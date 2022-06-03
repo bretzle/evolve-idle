@@ -1,4 +1,5 @@
 #![feature(generic_const_exprs)]
+#![feature(let_chains)]
 #![allow(incomplete_features)]
 #![warn(clippy::all)]
 
@@ -10,7 +11,7 @@ use imgui::{TableFlags, Ui};
 use race::{Race, Species};
 use resource::{ResourceType, Resources};
 use serde::{Deserialize, Serialize};
-use std::{time::Duration, fs::File};
+use std::{fs::File, time::Duration};
 use structure::Cost;
 
 mod clockwork;
@@ -42,7 +43,7 @@ struct Game {
     rng: Rng,
 
     // Ui stuff
-	#[serde(skip)]
+    #[serde(skip)]
     actions: usize,
 }
 
@@ -77,16 +78,16 @@ impl Game {
         serde_json::from_str(&content).ok()
     }
 
-	fn save(&self) {
-		let x = serde_json::to_vec_pretty(self).unwrap();
-		let mut file = File::create("save.json").unwrap();
-		use std::io::Write;
-		file.write(&x).unwrap();
-	}
+    fn save(&self) {
+        let x = serde_json::to_vec_pretty(self).unwrap();
+        let mut file = File::create("save.json").unwrap();
+        use std::io::Write;
+        file.write(&x).unwrap();
+    }
 
-	fn on_exit(&self) {
-		self.save();
-	}
+    fn on_exit(&self) {
+        self.save();
+    }
 
     // Runs every 0.25 seconds
     fn fast_loop(&mut self) {
@@ -95,8 +96,7 @@ impl Game {
         if matches!(self.race.species, Species::Protoplasm) {
             use ResourceType::*;
             // Gain DNA
-            if self.evolution.nucleus != -1 && !self.resources.dna.is_full() {
-                let mut increment = self.evolution.nucleus;
+            if let Some(mut increment) = self.evolution.nucleus && !self.resources.dna.is_full() {
                 while self.resources.rna.amount < (increment * 2) as f32 {
                     increment -= 1;
                     if increment <= 0 {
@@ -111,10 +111,9 @@ impl Game {
             }
 
             // Gain RNA
-            let organelles = self.evolution.organelles;
-            if organelles != -1 {
+            if let Some(organelles) = self.evolution.organelles {
                 let mut mult = 1;
-                if self.evolution.sexual_reproduction > 0 {
+                if self.evolution.sexual_reproduction == Some(true) {
                     mult += 1;
                 }
 
@@ -130,17 +129,17 @@ impl Game {
                 evolution.dna_unlocked = true;
                 resources.dna.display = true;
             } else if resources.rna.amount >= 10.0 && !evolution.is_unlocked("membrane") {
-                evolution.membrane = 0;
+                evolution.membrane = Some(0);
             } else if resources.dna.amount >= 2.0 && !evolution.is_unlocked("organelles") {
-                evolution.organelles = 0;
-            } else if evolution.organelles >= 2 && !evolution.is_unlocked("nucleus") {
-                evolution.nucleus = 0;
-            } else if evolution.nucleus >= 1 && !evolution.is_unlocked("eukaryotic_cell") {
-                evolution.eukaryotic_cell = 0;
-            } else if evolution.eukaryotic_cell >= 1 && !evolution.is_unlocked("mitochondria") {
-                evolution.mitochondria = 0;
-            } else if evolution.mitochondria >= 1 && evolution.sexual_reproduction == -1 {
-                evolution.sexual_reproduction = 0;
+                evolution.organelles = Some(0);
+            } else if let Some(count) = evolution.organelles && count >= 2  && !evolution.is_unlocked("nucleus") {
+                evolution.nucleus = Some(0);
+            } else if let Some(count) = evolution.nucleus && count>= 1 && !evolution.is_unlocked("eukaryotic_cell") {
+                evolution.eukaryotic_cell = Some(0);
+            } else if let Some(count) = evolution.eukaryotic_cell && count >= 1 && !evolution.is_unlocked("mitochondria") {
+                evolution.mitochondria = Some(0);
+            } else if let Some(count) = evolution.mitochondria&&count >= 1 && evolution.sexual_reproduction.is_none() {
+                evolution.sexual_reproduction = Some(false);
             }
         } else {
             todo!()
@@ -162,21 +161,19 @@ impl Game {
             let base = 100.0;
             let mut rna_cap = base;
             let mut dna_cap = base;
-            if self.evolution.membrane != -1 {
-                let effect = if self.evolution.mitochondria != -1 {
-                    self.evolution.mitochondria * 5 + 5
-                } else {
-                    5
+            if let Some(membrane) = self.evolution.membrane {
+                let effect = match self.evolution.mitochondria {
+                    Some(count) => count * 5 + 5,
+                    None => 5,
                 };
-                rna_cap += (self.evolution.membrane * effect) as f32;
+                rna_cap += (membrane * effect) as f32;
             }
-            if self.evolution.eukaryotic_cell != -1 {
-                let effect = if self.evolution.mitochondria != -1 {
-                    self.evolution.mitochondria * 10 + 10
-                } else {
-                    10
+            if let Some(eukaryotic_cell) = self.evolution.eukaryotic_cell {
+                let effect = match self.evolution.mitochondria {
+                    Some(count) => count * 10 + 10,
+                    None => 10,
                 };
-                dna_cap += (self.evolution.eukaryotic_cell * effect) as f32;
+                dna_cap += (eukaryotic_cell * effect) as f32;
             }
 
             self.resources.rna.max = rna_cap;
@@ -189,7 +186,7 @@ impl Game {
     // Runs every 5 seconds
     fn long_loop(&mut self) {
         // autosave
-		self.save();
+        self.save();
     }
 
     pub fn update(&mut self, ui: &mut Ui) {

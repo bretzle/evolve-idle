@@ -93,7 +93,7 @@ impl Drop for StatusBarToken {
 }
 
 pub fn right_align<T: AsRef<str>>(ui: &Ui, text: T) {
-	let y = ui.cursor_pos()[1];
+    let y = ui.cursor_pos()[1];
     ui.set_cursor_pos([ui.content_region_max()[0] - ui.calc_text_size(&text)[0], y]);
     ui.text(text);
 }

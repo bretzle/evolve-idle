@@ -35,7 +35,7 @@ pub(crate) trait Structure {
 }
 
 #[inline(always)]
-pub(crate) fn construct_impl<T: Structure>(ui: &Ui, game: &mut Game, count: Option<i32>)
+pub(crate) fn construct_impl<T: Structure>(ui: &Ui, game: &mut Game, count: Option<u32>)
 where
     [(); T::SIZE]:,
 {
@@ -91,6 +91,6 @@ macro_rules! construct {
         crate::structure::construct_impl::<$T>(&$ui, $game, None);
     };
     ( $T:ty, $ui:ident, $game:ident  .evolution. $building:ident ) => {
-        crate::structure::construct_impl::<$T>(&$ui, $game, Some($game.evolution.$building));
+        crate::structure::construct_impl::<$T>(&$ui, $game, $game.evolution.$building.map(|x| x as u32));
     };
 }

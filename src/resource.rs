@@ -1,5 +1,5 @@
 use enum_iterator::Sequence;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     ops::{Index, IndexMut},

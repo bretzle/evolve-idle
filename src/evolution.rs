@@ -1,14 +1,14 @@
-use serde::{Serialize, Deserialize};
 use crate::{
     resource::ResourceType::*,
     structure::{Cost, Structure},
     Game,
 };
+use serde::{Deserialize, Serialize};
 
 macro_rules! cost {
     ( $game:expr, $($resource:ident => $cell:tt, $base:expr, $mult:expr),* ) => {
         [$(
-            Cost { resource: $resource, amount: ($game.evolution.$cell * $mult + $base) as _ }
+            Cost { resource: $resource, amount: ($game.evolution.$cell.unwrap() * $mult + $base) as _ }
         ),*]
     };
 
@@ -17,29 +17,37 @@ macro_rules! cost {
     }
 }
 
+macro_rules! inc {
+	($($t:tt)+) => {
+		if let Some(count) = $($t)+.as_mut() {
+			*count += 1;
+		}
+	};
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Evolution {
     pub dna_unlocked: bool,
-    pub membrane: i32,
-    pub organelles: i32,
-    pub nucleus: i32,
-    pub eukaryotic_cell: i32,
-    pub mitochondria: i32,
-    pub sexual_reproduction: i32,
-    pub multicellular: i32,
+    pub membrane: Option<u32>,
+    pub organelles: Option<u32>,
+    pub nucleus: Option<u32>,
+    pub eukaryotic_cell: Option<u32>,
+    pub mitochondria: Option<u32>,
+    pub sexual_reproduction: Option<bool>,
+    pub multicellular: Option<bool>,
 }
 
 impl Evolution {
     pub fn new() -> Self {
         Self {
             dna_unlocked: false,
-            membrane: -1,
-            organelles: -1,
-            nucleus: -1,
-            eukaryotic_cell: -1,
-            mitochondria: -1,
-            sexual_reproduction: -1,
-            multicellular: -1,
+            membrane: None,
+            organelles: None,
+            nucleus: None,
+            eukaryotic_cell: None,
+            mitochondria: None,
+            sexual_reproduction: None,
+            multicellular: None,
         }
     }
 
@@ -47,13 +55,13 @@ impl Evolution {
         match id {
             "rna" => true,
             "dna" => self.dna_unlocked,
-            "membrane" => self.membrane != -1,
-            "organelles" => self.organelles != -1,
-            "nucleus" => self.nucleus != -1,
-            "eukaryotic_cell" => self.eukaryotic_cell != -1,
-            "mitochondria" => self.mitochondria != -1,
-            "sexual_reproduction" => self.sexual_reproduction != -1 && self.sexual_reproduction != 1,
-            "multicellular" => self.multicellular != -1,
+            "membrane" => self.membrane.is_some(),
+            "organelles" => self.organelles.is_some(),
+            "nucleus" => self.nucleus.is_some(),
+            "eukaryotic_cell" => self.eukaryotic_cell.is_some(),
+            "mitochondria" => self.mitochondria.is_some(),
+            "sexual_reproduction" => self.sexual_reproduction == Some(true),
+            "multicellular" => self.multicellular.is_some(),
             _ => unreachable!(),
         }
     }
@@ -158,10 +166,9 @@ impl Structure for Membrane {
     }
 
     fn effect(game: &Game) -> String {
-        let effect = if game.evolution.mitochondria != -1 {
-            game.evolution.mitochondria * 5 + 5
-        } else {
-            5
+        let effect = match game.evolution.mitochondria {
+            Some(count) => count * 5 + 5,
+            None => 5,
         };
         format!("Increases RNA capacity by {effect}")
     }
@@ -172,12 +179,11 @@ impl Structure for Membrane {
 
     fn action(game: &mut Game) {
         if pay::<Self>(game) {
-            game.resources.rna.max += if game.evolution.mitochondria != -1 {
-                game.evolution.mitochondria * 5 + 5
-            } else {
-                5
+            game.resources.rna.max += match game.evolution.mitochondria {
+                Some(count) => count * 5 + 5,
+                None => 5,
             } as f32;
-            game.evolution.membrane += 1;
+            inc!(game.evolution.membrane);
         }
     }
 }
@@ -203,7 +209,7 @@ impl Structure for Organelles {
 
     fn effect(game: &Game) -> String {
         let mut rna = 1;
-        if game.evolution.sexual_reproduction > 0 {
+        if game.evolution.sexual_reproduction == Some(true) {
             rna += 1;
         }
         format!("Automatically generate {rna} RNA")
@@ -215,7 +221,7 @@ impl Structure for Organelles {
 
     fn action(game: &mut Game) {
         if pay::<Self>(game) {
-            game.evolution.organelles += 1;
+            inc!(game.evolution.organelles);
         }
     }
 }
@@ -232,7 +238,7 @@ impl Structure for Nucleus {
     }
 
     fn cost(game: &Game) -> [Cost; Self::SIZE] {
-        let multi = game.evolution.multicellular > 0;
+        let multi = game.evolution.multicellular == Some(true);
         cost! {
             game,
             RNA => nucleus, 38, if multi { 16 } else { 32 },
@@ -252,7 +258,7 @@ impl Structure for Nucleus {
 
     fn action(game: &mut Game) {
         if pay::<Self>(game) {
-            game.evolution.nucleus += 1;
+            inc!(game.evolution.nucleus)
         }
     }
 }
@@ -277,10 +283,9 @@ impl Structure for EukaryoticCell {
     }
 
     fn effect(game: &Game) -> String {
-        let effect = if game.evolution.mitochondria != -1 {
-            game.evolution.mitochondria * 10 + 10
-        } else {
-            10
+        let effect = match game.evolution.mitochondria {
+            Some(count) => count * 10 + 10,
+            None => 10,
         };
         format!("Increases DNA capacity by {effect}")
     }
@@ -291,9 +296,11 @@ impl Structure for EukaryoticCell {
 
     fn action(game: &mut Game) {
         if pay::<Self>(game) {
-            game.evolution.eukaryotic_cell += 1;
-            let mitochondria = game.evolution.mitochondria;
-            game.resources.dna.max += if mitochondria != -1 { mitochondria * 10 + 10 } else { 10 } as f32;
+            inc!(game.evolution.eukaryotic_cell);
+            game.resources.dna.max += match game.evolution.mitochondria {
+                Some(count) => count * 10 + 10,
+                None => 10,
+            } as f32;
         }
     }
 }
@@ -327,7 +334,7 @@ impl Structure for Mitochondria {
 
     fn action(game: &mut Game) {
         if pay::<Self>(game) {
-            game.evolution.mitochondria += 1;
+            inc!(game.evolution.mitochondria);
         }
     }
 }
@@ -357,7 +364,8 @@ impl Structure for SexualReproduction {
 
     fn action(game: &mut Game) {
         if pay::<Self>(game) {
-            game.evolution.sexual_reproduction += 1;
+            assert!(game.evolution.sexual_reproduction.is_none());
+            game.evolution.sexual_reproduction = Some(true);
             // TODO: only allow to be bought once
 
             // TODO: allow phagocytosis, chloroplasts, chitin to be purchased
