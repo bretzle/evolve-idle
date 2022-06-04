@@ -273,7 +273,23 @@ impl Game {
             .movable(false)
             .resizable(false)
             .draw_background(false)
-            .build(|| {});
+            .build(|| {
+                #[cfg(debug_assertions)]
+                {
+                    ui.text("Cheats");
+                    if ui.button("Fill resources") {
+                        all::<ResourceType>().for_each(|res| {
+                            let res = &mut self.resources[res];
+                            res.amount = res.max;
+                        });
+                    }
+
+                    if ui.button("Reset Save") {
+                        self.resources = Resources::new();
+                        self.evolution = Evolution::new();
+                    }
+                }
+            });
     }
 }
 

@@ -60,7 +60,7 @@ impl Evolution {
             "nucleus" => self.nucleus.is_some(),
             "eukaryotic_cell" => self.eukaryotic_cell.is_some(),
             "mitochondria" => self.mitochondria.is_some(),
-            "sexual_reproduction" => self.sexual_reproduction == Some(true),
+            "sexual_reproduction" => self.sexual_reproduction == Some(false),
             "multicellular" => self.multicellular.is_some(),
             _ => unreachable!(),
         }
@@ -363,8 +363,8 @@ impl Structure for SexualReproduction {
     }
 
     fn action(game: &mut Game) {
+        assert!(game.evolution.sexual_reproduction == Some(false));
         if pay::<Self>(game) {
-            assert!(game.evolution.sexual_reproduction.is_none());
             game.evolution.sexual_reproduction = Some(true);
             // TODO: only allow to be bought once
 
