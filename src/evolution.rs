@@ -1,4 +1,5 @@
 use crate::{
+    race::Species,
     resource::ResourceType::*,
     structure::{Cost, Structure},
     Game,
@@ -33,8 +34,21 @@ pub struct Evolution {
     pub nucleus: Option<u32>,
     pub eukaryotic_cell: Option<u32>,
     pub mitochondria: Option<u32>,
+
     pub sexual_reproduction: Option<bool>,
+    pub phagocytosis: Option<bool>,
+    pub chloroplasts: Option<bool>,
+    pub chitin: Option<bool>,
+
     pub multicellular: Option<bool>,
+    pub bilateral_symmetry: Option<bool>,
+    pub poikilohydric: Option<bool>,
+    pub spores: Option<bool>,
+
+    pub bryophyte: Option<bool>,
+    pub sentience: Option<bool>,
+
+    pub progress: Option<u32>,
 }
 
 impl Evolution {
@@ -47,7 +61,16 @@ impl Evolution {
             eukaryotic_cell: None,
             mitochondria: None,
             sexual_reproduction: None,
+            phagocytosis: None,
+            chloroplasts: None,
+            chitin: None,
             multicellular: None,
+            bilateral_symmetry: None,
+            poikilohydric: None,
+            spores: None,
+            bryophyte: None,
+            sentience: None,
+            progress: None,
         }
     }
 
@@ -61,7 +84,15 @@ impl Evolution {
             "eukaryotic_cell" => self.eukaryotic_cell.is_some(),
             "mitochondria" => self.mitochondria.is_some(),
             "sexual_reproduction" => self.sexual_reproduction == Some(false),
-            "multicellular" => self.multicellular.is_some(),
+            "phagocytosis" => self.phagocytosis == Some(false),
+            "chloroplasts" => self.chloroplasts == Some(false),
+            "chitin" => self.chitin == Some(false),
+            "multicellular" => self.multicellular == Some(false),
+			"bilateral_symmetry" => self.bilateral_symmetry == Some(false),
+			"poikilohydric" => self.poikilohydric == Some(false),
+			"spores" => self.spores == Some(false),
+			"bryophyte" => self.bryophyte == Some(false),
+			"sentience" => self.sentience == Some(false),
             _ => unreachable!(),
         }
     }
@@ -366,12 +397,360 @@ impl Structure for SexualReproduction {
         assert!(game.evolution.sexual_reproduction == Some(false));
         if pay::<Self>(game) {
             game.evolution.sexual_reproduction = Some(true);
-            // TODO: only allow to be bought once
 
-            // TODO: allow phagocytosis, chloroplasts, chitin to be purchased
+            game.evolution.phagocytosis = Some(false);
+            game.evolution.chloroplasts = Some(false);
+            game.evolution.chitin = Some(false);
+
+            game.evolution.progress = Some(20);
         }
     }
 }
+
+//////////////////////////////////////////////
+
+pub struct Phagocytosis;
+impl Structure for Phagocytosis {
+    const ID: &'static str = "phagocytosis";
+    const SIZE: usize = 1;
+
+    fn title() -> &'static str {
+        "Phagocytosis"
+    }
+
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
+        cost!(DNA => 175)
+    }
+
+    fn effect(_: &Game) -> String {
+        "Evolve in the direction of the animal kingdom. This is a major evolutionary fork.".to_string()
+    }
+
+    fn description() -> &'static str {
+        // "Evolve Phagocytosis"
+        "This path is yet to be developed. Do not purchase it."
+    }
+
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.phagocytosis = Some(true);
+            game.evolution.chloroplasts = None;
+            game.evolution.chitin = None;
+            game.evolution.multicellular = Some(false);
+            game.evolution.progress = Some(40);
+        }
+    }
+}
+
+//////////////////////////////////////////////
+
+pub struct Chloroplasts;
+impl Structure for Chloroplasts {
+    const ID: &'static str = "chloroplasts";
+    const SIZE: usize = 1;
+
+    fn title() -> &'static str {
+        "Chloroplasts"
+    }
+
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
+        cost!(DNA => 175)
+    }
+
+    fn effect(_: &Game) -> String {
+        "Evolve in the direction of the plant kingdom. This is a major evolutionary fork.".to_string()
+    }
+
+    fn description() -> &'static str {
+        "Evolve Chloroplasts"
+    }
+
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.chloroplasts = Some(true);
+            game.evolution.phagocytosis = None;
+            game.evolution.chitin = None;
+            game.evolution.multicellular = Some(false);
+            game.evolution.progress = Some(40);
+        }
+    }
+}
+
+//////////////////////////////////////////////
+
+pub struct Chitin;
+impl Structure for Chitin {
+    const ID: &'static str = "chitin";
+    const SIZE: usize = 1;
+
+    fn title() -> &'static str {
+        "Chitin"
+    }
+
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
+        cost!(DNA => 175)
+    }
+
+    fn effect(_: &Game) -> String {
+        "Evolve in the direction of the fungi kingdom. This is a major evolutionary fork.".to_string()
+    }
+
+    fn description() -> &'static str {
+        "Evolve Chitin"
+    }
+
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.chitin = Some(true);
+            game.evolution.phagocytosis = None;
+            game.evolution.chloroplasts = None;
+            game.evolution.multicellular = Some(false);
+            game.evolution.progress = Some(40);
+        }
+    }
+}
+
+//////////////////////////////////////////////
+
+pub struct Multicellular;
+impl Structure for Multicellular {
+    const ID: &'static str = "multicellular";
+    const SIZE: usize = 1;
+
+    fn title() -> &'static str {
+        "Multicellular"
+    }
+
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
+        cost!(DNA => 200)
+    }
+
+    fn effect(_: &Game) -> String {
+        "Decreases cost of producing new nucleus.".to_string()
+    }
+
+    fn description() -> &'static str {
+        "Evolve Multicellular"
+    }
+
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.multicellular = Some(true);
+            game.evolution.progress = Some(60);
+
+            if game.evolution.phagocytosis.is_some() {
+                game.evolution.bilateral_symmetry = Some(false);
+            } else if game.evolution.chloroplasts.is_some() {
+                game.evolution.poikilohydric = Some(false);
+            } else if game.evolution.chitin.is_some() {
+                game.evolution.spores = Some(false);
+            }
+        }
+    }
+}
+
+//////////////////////////////////////////////
+
+pub struct Spores;
+impl Structure for Spores {
+    const ID: &'static str = "spores";
+    const SIZE: usize = 1;
+
+    fn title() -> &'static str {
+        "Spores"
+    }
+
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
+        cost!(DNA => 230)
+    }
+
+    fn effect(_: &Game) -> String {
+        "Increases DNA generation from nucleus".to_string()
+    }
+
+    fn description() -> &'static str {
+        "Evolve Spores"
+    }
+
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.spores = Some(true);
+            game.evolution.bryophyte = Some(false);
+            game.evolution.progress = Some(80);
+        }
+    }
+}
+
+//////////////////////////////////////////////
+
+pub struct Poikilohydric;
+impl Structure for Poikilohydric {
+    const ID: &'static str = "poikilohydric";
+    const SIZE: usize = 1;
+
+    fn title() -> &'static str {
+        "Poikilohydric"
+    }
+
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
+        cost!(DNA => 230)
+    }
+
+    fn effect(_: &Game) -> String {
+        "Increases DNA generation from nucleus".to_string()
+    }
+
+    fn description() -> &'static str {
+        "Evolve Poikilohydric"
+    }
+
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.poikilohydric = Some(true);
+            game.evolution.bryophyte = Some(false);
+            game.evolution.progress = Some(80);
+        }
+    }
+}
+
+//////////////////////////////////////////////
+
+pub struct BilateralSymmetry;
+impl Structure for BilateralSymmetry {
+    const ID: &'static str = "bilateral_symmetry";
+    const SIZE: usize = 1;
+
+    fn title() -> &'static str {
+        "BilateralSymmetry"
+    }
+
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
+        cost!(DNA => 230)
+    }
+
+    fn effect(_: &Game) -> String {
+        "Increases DNA generation from nucleus".to_string()
+    }
+
+    fn description() -> &'static str {
+        "This path is yet to be developed. Do not purchase it."
+    }
+
+    fn action(_: &mut Game) {
+        println!("Animal kingdom is not implemented yet")
+    }
+}
+
+//////////////////////////////////////////////
+
+pub struct Bryophyte;
+impl Structure for Bryophyte {
+    const ID: &'static str = "bryophyte";
+    const SIZE: usize = 1;
+
+    fn title() -> &'static str {
+        "Bryophyte"
+    }
+
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
+        cost!(DNA => 260)
+    }
+
+    fn effect(_: &Game) -> String {
+        "Continue evolving towards sentience".to_string()
+    }
+
+    fn description() -> &'static str {
+        "Evolve Bryophyte"
+    }
+
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.bryophyte = Some(true);
+            game.evolution.progress = Some(100);
+            game.evolution.sentience = Some(false);
+        }
+    }
+}
+
+//////////////////////////////////////////////
+
+pub struct Sentience;
+impl Structure for Sentience {
+    const ID: &'static str = "sentience";
+    const SIZE: usize = 2;
+
+    fn title() -> &'static str {
+        "Sentience"
+    }
+
+    fn cost(_: &Game) -> [Cost; Self::SIZE] {
+        cost! {
+            RNA => 300,
+            DNA => 300
+        }
+    }
+
+    fn effect(_: &Game) -> String {
+        "Complete your evolution by evolving into a species which has achieved sentience.".to_string()
+    }
+
+    fn description() -> &'static str {
+        "Evolve Sentience"
+    }
+
+    fn action(game: &mut Game) {
+        if pay::<Self>(game) {
+            game.evolution.sentience = Some(true);
+
+            let mut races = vec![];
+
+            if game.evolution.chitin.is_some() {
+                races.extend([Species::Sporgar, Species::Shroomi, Species::Molding]);
+            } else if game.evolution.chloroplasts.is_some() {
+                races.extend([Species::Entish, Species::Cacti, Species::Pinguicula]);
+            } else {
+                unreachable!()
+            }
+
+            game.race.species = races[game.rng.usize(0..races.len())];
+
+            game.become_sentient()
+        }
+    }
+}
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
+
+//////////////////////////////////////////////
 
 //////////////////////////////////////////////
 

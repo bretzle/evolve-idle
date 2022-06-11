@@ -7,7 +7,7 @@ use engine::Engine;
 use enum_iterator::all;
 use evolution::Evolution;
 use fastrand::Rng;
-use imgui::{TableFlags, Ui};
+use imgui::{ProgressBar, TableFlags, Ui};
 use race::{Race, Species};
 use resource::{ResourceType, Resources};
 use serde::{Deserialize, Serialize};
@@ -33,7 +33,7 @@ fn main() {
 struct Game {
     seed: u64,
     resources: Resources,
-    evolution: Evolution,
+    evolution: Evolution, // TODO: dont serialize this once sentient
     tech: (),
     city: (),
     civic: (),
@@ -142,7 +142,6 @@ impl Game {
                 evolution.sexual_reproduction = Some(false);
             }
         } else {
-            todo!()
         }
 
         // main resource tracking
@@ -179,7 +178,6 @@ impl Game {
             self.resources.rna.max = rna_cap;
             self.resources.dna.max = dna_cap;
         } else {
-            todo!()
         }
     }
 
@@ -239,27 +237,39 @@ impl Game {
             // .draw_background(false)
             .build(|| {
                 if let Some(_tab) = ui.tab_bar("tabs") {
-                    if let Some(_tab) = ui.tab_item("Evolve") {
-                        self.actions = 0;
+                    if self.race.species == Species::Protoplasm {
+                        if let Some(_tab) = ui.tab_item("Evolve") {
+                            self.actions = 0;
 
-                        construct!(evolution::Rna, ui, self);
-                        construct!(evolution::Dna, ui, self);
-                        construct!(evolution::Membrane, ui, self.evolution.membrane);
-                        construct!(evolution::Organelles, ui, self.evolution.organelles);
-                        construct!(evolution::Nucleus, ui, self.evolution.nucleus);
-                        construct!(evolution::EukaryoticCell, ui, self.evolution.eukaryotic_cell);
-                        construct!(evolution::Mitochondria, ui, self.evolution.mitochondria);
-                        construct!(evolution::SexualReproduction, ui, self.evolution.sexual_reproduction);
+                            construct!(evolution::Rna, ui, self);
+                            construct!(evolution::Dna, ui, self);
+                            construct!(evolution::Membrane, ui, self.evolution.membrane);
+                            construct!(evolution::Organelles, ui, self.evolution.organelles);
+                            construct!(evolution::Nucleus, ui, self.evolution.nucleus);
+                            construct!(evolution::EukaryoticCell, ui, self.evolution.eukaryotic_cell);
+                            construct!(evolution::Mitochondria, ui, self.evolution.mitochondria);
+                            construct!(evolution::SexualReproduction, ui, self.evolution.sexual_reproduction);
 
-                        // // construct::<evolution::Phagocytosis>(ui, game);
-                        // construct::<evolution::Chloroplasts>(ui, self);
-                        // // construct::<evolution::Chitin>(ui, game);
+                            construct!(evolution::Phagocytosis, ui, self.evolution.phagocytosis);
+                            construct!(evolution::Chloroplasts, ui, self.evolution.chloroplasts);
+                            construct!(evolution::Chitin, ui, self.evolution.chitin);
 
-                        // construct::<evolution::Multicellular>(ui, self);
-                        // construct::<evolution::Poikilohydric>(ui, self);
-                        // construct::<evolution::Bryophyte>(ui, self);
+                            construct!(evolution::Multicellular, ui, self.evolution.multicellular);
 
-                        // construct::<evolution::Sentience>(ui, self);
+                            construct!(evolution::Poikilohydric, ui, self.evolution.poikilohydric);
+                            construct!(evolution::Bryophyte, ui, self.evolution.bryophyte);
+
+                            construct!(evolution::Sentience, ui, self.evolution.sentience);
+
+                            if let Some(progress) = self.evolution.progress {
+                                ui.new_line();
+                                ui.spacing();
+                                ProgressBar::new(progress as f32 / 100.0)
+                                    .overlay_text("Evolving")
+                                    .build(ui);
+                            }
+                        }
+                    } else {
                     }
                     if let Some(_tab) = ui.tab_item("Settings") {}
                 }
@@ -294,6 +304,11 @@ impl Game {
 }
 
 impl Game {
+    fn become_sentient(&mut self) {
+        self.resources.rna.display = false;
+        self.resources.dna.display = false;
+    }
+
     fn diff_calc(&mut self, res: ResourceType, period: f32) {
         let sec = 1000.0;
 
@@ -345,7 +360,13 @@ impl Game {
             | "eukaryotic_cell"
             | "mitochondria"
             | "sexual_reproduction"
-            | "multicellular" => self.evolution.is_unlocked(id),
+            | "multicellular"
+            | "phagocytosis"
+            | "chloroplasts"
+            | "chitin"
+            | "poikilohydric"
+            | "bryophyte"
+            | "sentience" => self.evolution.is_unlocked(id),
             _ => panic!("id: {id:?} does not exist."),
         }
     }

@@ -1,8 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Species {
     Protoplasm,
+	// Fungi
+    Sporgar,
+    Shroomi,
+    Molding,
+	// Plants
+    Entish,
+    Cacti,
+    Pinguicula,
 }
 
 #[derive(Serialize, Deserialize)]
