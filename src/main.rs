@@ -1,19 +1,21 @@
-#![feature(generic_const_exprs)]
+#![feature(generic_const_exprs, const_option)]
 #![feature(let_chains)]
 #![allow(incomplete_features)]
 #![warn(clippy::all)]
 
-use engine::Engine;
-use enum_iterator::all;
-use evolution::Evolution;
+use crate::action::*;
+use crate::engine::Engine;
+use crate::evolution::Evolution;
+use crate::race::{Race, Species};
+use crate::resource::{ResourceType, Resources};
 use fastrand::Rng;
-use imgui::{ProgressBar, TableFlags, Ui};
-use race::{Race, Species};
-use resource::{ResourceType, Resources};
+use imgui::{sys::ImGuiCol_Text, ImColor32, ItemHoveredFlags, ProgressBar, TableFlags, Ui};
+use once_cell::sync::Lazy;
+use resource::Cost;
 use serde::{Deserialize, Serialize};
-use std::{fs::File, time::Duration};
-use structure::Cost;
+use std::{fs::File, sync::Mutex, time::Duration};
 
+mod action;
 mod clockwork;
 mod engine;
 mod evolution;
@@ -30,7 +32,7 @@ fn main() {
 
 #[allow(dead_code)] // remove this
 #[derive(Serialize, Deserialize)]
-struct Game {
+pub struct Game {
     seed: u64,
     resources: Resources,
     evolution: Evolution, // TODO: dont serialize this once sentient
@@ -47,6 +49,8 @@ struct Game {
     actions: usize,
 }
 
+static ACTIONS: Lazy<Mutex<ActionHolder>> = Lazy::new(|| Mutex::new(ActionHolder::new()));
+
 impl Game {
     pub fn new(engine: &mut Engine) -> Self {
         let Engine { clockwork, .. } = engine;
@@ -55,7 +59,9 @@ impl Game {
         clockwork.every(Duration::from_millis(1000)).run(Game::mid_loop);
         clockwork.every(Duration::from_millis(5000)).run(Game::long_loop);
 
-        Self::load_save().unwrap_or_else(|| Self {
+        ACTIONS.lock().unwrap().add(Category::Evolution, ACTION_RNA);
+
+        Self {
             seed: 1,
             resources: Resources::new(),
             evolution: Evolution::new(),
@@ -66,9 +72,10 @@ impl Game {
 
             rng: Rng::with_seed(1),
             actions: 0,
-        })
+        }
     }
 
+    #[allow(dead_code)]
     fn load_save() -> Option<Self> {
         let content = match std::fs::read_to_string("save.json") {
             Ok(content) => content,
@@ -125,27 +132,34 @@ impl Game {
                 resources, evolution, ..
             } = self;
 
-            if resources.rna.amount >= 2.0 && !evolution.dna_unlocked {
-                evolution.dna_unlocked = true;
+            let mut holder = ACTIONS.lock().unwrap();
+
+            if resources.rna.amount >= 2.0 && !holder.unlocked(ACTION_DNA) {
+				holder.add(Category::Evolution, ACTION_DNA);
                 resources.dna.display = true;
-            } else if resources.rna.amount >= 10.0 && !evolution.is_unlocked("membrane") {
-                evolution.membrane = Some(0);
-            } else if resources.dna.amount >= 2.0 && !evolution.is_unlocked("organelles") {
-                evolution.organelles = Some(0);
-            } else if let Some(count) = evolution.organelles && count >= 2  && !evolution.is_unlocked("nucleus") {
-                evolution.nucleus = Some(0);
-            } else if let Some(count) = evolution.nucleus && count>= 1 && !evolution.is_unlocked("eukaryotic_cell") {
-                evolution.eukaryotic_cell = Some(0);
-            } else if let Some(count) = evolution.eukaryotic_cell && count >= 1 && !evolution.is_unlocked("mitochondria") {
-                evolution.mitochondria = Some(0);
-            } else if let Some(count) = evolution.mitochondria&&count >= 1 && evolution.sexual_reproduction.is_none() {
-                evolution.sexual_reproduction = Some(false);
+            } else if resources.rna.amount >= 10.0 && !holder.unlocked(ACTION_MEMBRANE) {
+                holder.add(Category::Evolution, ACTION_MEMBRANE);
+				evolution.membrane = Some(0);
+            } else if resources.dna.amount >= 2.0 && !holder.unlocked(ACTION_ORGANELLES) {
+                holder.add(Category::Evolution, ACTION_ORGANELLES);
+				evolution.organelles = Some(0);
+            } else if let Some(count) = evolution.organelles && count >= 2  && !holder.unlocked(ACTION_NUCLEUS) {
+				holder.add(Category::Evolution, ACTION_NUCLEUS);
+				evolution.nucleus = Some(0);
+            } else if let Some(count) = evolution.nucleus && count>= 1 && !holder.unlocked(ACTION_EUKARYOTIC_CELL) {
+				holder.add(Category::Evolution, ACTION_EUKARYOTIC_CELL);
+				evolution.eukaryotic_cell = Some(0);
+            } else if let Some(count) = evolution.eukaryotic_cell && count >= 1 && !holder.unlocked(ACTION_MITOCHONDRIA) {
+				holder.add(Category::Evolution, ACTION_MITOCHONDRIA);
+				evolution.mitochondria = Some(0);
+            } else if let Some(count) = evolution.mitochondria && count >= 1 && evolution.sexual_reproduction.is_none() {
+				holder.add(Category::Evolution, ACTION_SEXUAL_REPRODUCTION);
+				evolution.sexual_reproduction = Some(false);
             }
-        } else {
         }
 
         // main resource tracking
-        for res in all::<ResourceType>() {
+        for res in ResourceType::iter() {
             let resource = &self.resources[res];
             if resource.rate > 0.0 || (resource.rate == 0.0 && resource.max == -1.0) {
                 self.diff_calc(res, 250.0)
@@ -213,7 +227,7 @@ impl Game {
             .build(|| {
                 let size = ui.content_region_avail();
                 if let Some(_) = ui.begin_table_with_sizing("res table", 3, TableFlags::ROW_BG, size, 0.0) {
-                    all::<ResourceType>().for_each(|res| {
+                    ResourceType::iter().for_each(|res| {
                         let resource = &self.resources[res];
                         if resource.display {
                             ui.table_next_column();
@@ -239,27 +253,65 @@ impl Game {
                 if let Some(_tab) = ui.tab_bar("tabs") {
                     if self.race.species == Species::Protoplasm {
                         if let Some(_tab) = ui.tab_item("Evolve") {
-                            self.actions = 0;
+                            let actions = ACTIONS.lock().unwrap()[Category::Evolution].clone();
 
-                            construct!(evolution::Rna, ui, self);
-                            construct!(evolution::Dna, ui, self);
-                            construct!(evolution::Membrane, ui, self.evolution.membrane);
-                            construct!(evolution::Organelles, ui, self.evolution.organelles);
-                            construct!(evolution::Nucleus, ui, self.evolution.nucleus);
-                            construct!(evolution::EukaryoticCell, ui, self.evolution.eukaryotic_cell);
-                            construct!(evolution::Mitochondria, ui, self.evolution.mitochondria);
-                            construct!(evolution::SexualReproduction, ui, self.evolution.sexual_reproduction);
+                            let style = unsafe { ui.style() };
+                            let mut width = ui.window_size()[0];
+                            width -= 2.0 * style.window_padding[0];
+                            width -= 6.0 * style.frame_padding[0];
+                            width /= 4.0;
+                            let size = [width, 48.0];
 
-                            construct!(evolution::Phagocytosis, ui, self.evolution.phagocytosis);
-                            construct!(evolution::Chloroplasts, ui, self.evolution.chloroplasts);
-                            construct!(evolution::Chitin, ui, self.evolution.chitin);
+                            for (idx, action) in actions.into_iter().enumerate() {
+                                let mut p1 = ui.cursor_screen_pos();
+                                let costs = action.cost(self);
+                                let effect = action.effect(self);
+                                ui.enabled(self.afford(&costs), || {
+                                    if ui.button_with_size(action.title(), size) {
+                                        action.execute(self)
+                                    }
+                                });
+                                if ui.is_item_hovered_with_flags(ItemHoveredFlags::ALLOW_WHEN_DISABLED) {
+                                    ui.tooltip(|| {
+                                        ui.text(action.description());
+                                        for (idx, cost) in costs.iter().enumerate() {
+                                            if idx == 0 {
+                                                ui.separator();
+                                            }
+                                            ui.text(format!("{}: {}", cost.resource, cost.amount))
+                                        }
+                                        if let Some(text) = effect {
+                                            ui.separator();
+                                            ui.text(text);
+                                        }
+                                    });
+                                }
 
-                            construct!(evolution::Multicellular, ui, self.evolution.multicellular);
+                                if let Some(count) = action.count(self) {
+                                    if count != 0 {
+                                        let text = format!("{count}");
+                                        let text_size = ui.calc_text_size(&text);
+                                        p1[0] += width - text_size[0] - 7.0;
+                                        let p2 = [p1[0] + text_size[0] + 7.0, p1[1] + text_size[1] + 1.0];
 
-                            construct!(evolution::Poikilohydric, ui, self.evolution.poikilohydric);
-                            construct!(evolution::Bryophyte, ui, self.evolution.bryophyte);
+                                        let draw = ui.get_window_draw_list();
 
-                            construct!(evolution::Sentience, ui, self.evolution.sentience);
+                                        draw.add_rect(p1, p2, ImColor32::from_rgb(40, 40, 40))
+                                            .filled(true)
+                                            .rounding(5.0)
+                                            .round_bot_right(false)
+                                            .round_top_left(false)
+                                            .round_top_right(false)
+                                            .build();
+
+                                        draw.add_text([p1[0] + 4.0, p1[1]], style.colors[ImGuiCol_Text as usize], text);
+                                    }
+                                }
+
+                                if (idx + 1) % 4 != 0 {
+                                    ui.same_line();
+                                }
+                            }
 
                             if let Some(progress) = self.evolution.progress {
                                 ui.new_line();
@@ -269,7 +321,6 @@ impl Game {
                                     .build(ui);
                             }
                         }
-                    } else {
                     }
                     if let Some(_tab) = ui.tab_item("Settings") {}
                 }
@@ -288,7 +339,7 @@ impl Game {
                 {
                     ui.text("Cheats");
                     if ui.button("Fill resources") {
-                        all::<ResourceType>().for_each(|res| {
+                        ResourceType::iter().for_each(|res| {
                             let res = &mut self.resources[res];
                             res.amount = res.max;
                         });
@@ -348,27 +399,6 @@ impl Game {
         }
 
         success
-    }
-
-    pub(crate) fn is_unlocked(&self, id: &str) -> bool {
-        match id {
-            "rna"
-            | "dna"
-            | "membrane"
-            | "organelles"
-            | "nucleus"
-            | "eukaryotic_cell"
-            | "mitochondria"
-            | "sexual_reproduction"
-            | "multicellular"
-            | "phagocytosis"
-            | "chloroplasts"
-            | "chitin"
-            | "poikilohydric"
-            | "bryophyte"
-            | "sentience" => self.evolution.is_unlocked(id),
-            _ => panic!("id: {id:?} does not exist."),
-        }
     }
 
     pub fn check_costs(&self, costs: &[Cost]) -> bool {

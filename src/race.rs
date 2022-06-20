@@ -3,11 +3,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Species {
     Protoplasm,
-	// Fungi
+    // Fungi
     Sporgar,
     Shroomi,
     Molding,
-	// Plants
+    // Plants
     Entish,
     Cacti,
     Pinguicula,

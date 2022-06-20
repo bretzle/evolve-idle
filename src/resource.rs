@@ -1,14 +1,20 @@
-use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
+use strum::{EnumIter, IntoEnumIterator};
 use std::{
     fmt,
     ops::{Index, IndexMut},
 };
 
-#[derive(Clone, Copy, Sequence)]
+#[derive(Clone, Copy, EnumIter)]
 pub enum ResourceType {
     RNA,
     DNA,
+}
+
+impl ResourceType {
+    pub fn iter() -> impl Iterator<Item = ResourceType> {
+        <Self as IntoEnumIterator>::iter()
+    }
 }
 
 impl fmt::Display for ResourceType {
@@ -82,4 +88,10 @@ impl IndexMut<ResourceType> for Resources {
             ResourceType::DNA => &mut self.dna,
         }
     }
+}
+
+#[derive(Clone, Copy)]
+pub struct Cost {
+    pub resource: ResourceType,
+    pub amount: f32,
 }

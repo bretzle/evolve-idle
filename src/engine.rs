@@ -10,9 +10,9 @@ use glutin::{
 use imgui::FontSource;
 use imgui_glow_renderer::AutoRenderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
-pub(crate) struct Engine {
+pub struct Engine {
     event_loop: EventLoop<()>,
     window: WindowedContext<PossiblyCurrent>,
     platform: WinitPlatform,
@@ -116,6 +116,7 @@ impl Engine {
                 } => {
                     game.on_exit();
                     *control_flow = ControlFlow::Exit;
+                    return;
                 }
                 event => {
                     platform.handle_event(imgui.io_mut(), window.window(), &event);
@@ -123,6 +124,8 @@ impl Engine {
             }
 
             clockwork.run_pending(&mut game);
+
+            *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(1000 / 60));
         });
     }
 }
