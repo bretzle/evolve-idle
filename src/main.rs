@@ -19,6 +19,7 @@ mod action;
 mod clockwork;
 mod engine;
 mod evolution;
+mod lang;
 mod race;
 mod resource;
 mod structure;
@@ -265,7 +266,7 @@ impl Game {
                             for (idx, action) in actions.into_iter().enumerate() {
                                 let mut p1 = ui.cursor_screen_pos();
                                 let costs = action.cost(self);
-                                let effect = action.effect(self);
+
                                 ui.enabled(self.afford(&costs), || {
                                     if ui.button_with_size(action.title(), size) {
                                         action.execute(self)
@@ -280,7 +281,7 @@ impl Game {
                                             }
                                             ui.text(format!("{}: {}", cost.resource, cost.amount))
                                         }
-                                        if let Some(text) = effect {
+                                        if let Some(text) = action.effect(self) {
                                             ui.separator();
                                             ui.text(text);
                                         }
@@ -348,6 +349,7 @@ impl Game {
                     if ui.button("Reset Save") {
                         self.resources = Resources::new();
                         self.evolution = Evolution::new();
+                        ACTIONS.lock().unwrap().clear();
                     }
                 }
             });

@@ -1,7 +1,8 @@
 use crate::race::Species;
 use crate::resource::ResourceType::*;
-use crate::ACTIONS;
+use crate::{loc, ACTIONS};
 use crate::{resource::Cost, Game};
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::ops::Index;
 
@@ -17,7 +18,7 @@ pub struct Action {
     pub id: &'static str,
     title: &'static str,
     desc: &'static str,
-    effect: Option<Hook<String>>,
+    effect: Option<Hook<Cow<'static, str>>>,
     cost: Option<Hook<Vec<Cost>>>,
     action: fn(&Self, &mut Game),
     count: Option<Hook<Option<u32>>>,
@@ -30,15 +31,15 @@ impl std::fmt::Debug for Action {
 }
 
 impl Action {
-    pub fn title(&self) -> String {
-        self.title.to_string()
+    pub fn title(&self) -> Cow<str> {
+        loc!(self.title)
     }
 
-    pub fn description(&self) -> String {
-        self.desc.to_string()
+    pub fn description(&self) -> Cow<str> {
+        loc!(self.desc)
     }
 
-    pub fn effect(&self, game: &Game) -> Option<String> {
+    pub fn effect(&self, game: &Game) -> Option<Cow<str>> {
         self.effect.map(|hook| hook(game))
     }
 
@@ -95,6 +96,13 @@ impl ActionHolder {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.inner.clear();
+        self.unlocks.clear();
+
+        self.add(Category::Evolution, ACTION_RNA);
+    }
+
     pub fn unlocked(&mut self, action: Action) -> bool {
         self.unlocks.contains(action.id)
     }
@@ -146,7 +154,7 @@ pub const ACTION_DNA: Action = Action {
     id: "evolution-dna",
     title: "evo_dna_title",
     desc: "evo_dna_desc",
-    effect: Some(|_| "evo_dna_effect".to_string()),
+    effect: Some(|_| loc!("evo_dna_effect")),
     cost: Some(|_| cost!(RNA => 2)),
     action: |_, game| {
         if game.resources[RNA].amount >= 2.0 && !game.resources[DNA].is_full() {
@@ -161,7 +169,10 @@ pub const ACTION_MEMBRANE: Action = Action {
     id: "evolution-membrane",
     title: "evo_membrane_title",
     desc: "evo_membrane_desc",
-    effect: Some(|_| "evo_membrane_effect".to_string()),
+    effect: Some(|game| {
+        let effect = game.evolution.mitochondria.map(|x| x * 5 + 5).unwrap_or(5);
+        loc!("evo_membrane_effect", effect)
+    }),
     cost: Some(|game| cost!(game, RNA => membrane, 2, 2)),
     action: |s, game| {
         if s.pay(game) {
@@ -184,7 +195,7 @@ pub const ACTION_ORGANELLES: Action = Action {
         if game.evolution.sexual_reproduction == Some(true) {
             rna += 1;
         }
-        format!("Automatically generate {rna} RNA")
+        loc!("evo_organelles_effect", rna)
     }),
     cost: Some(|game| {
         cost! {
@@ -208,7 +219,7 @@ pub const ACTION_NUCLEUS: Action = Action {
     effect: Some(|_| {
         // TODO: bilateral_symmetry, poikilohydric, spores increase this
         let dna = if false { 2 } else { 1 };
-        format!("Automatically consume 2 RNA to create {dna} DNA")
+        loc!("evo_nucleus_effect", dna)
     }),
     cost: Some(|game| {
         let multi = game.evolution.multicellular == Some(true);
@@ -235,7 +246,7 @@ pub const ACTION_EUKARYOTIC_CELL: Action = Action {
             Some(count) => count * 10 + 10,
             None => 10,
         };
-        format!("Increases DNA capacity by {effect}")
+        loc!("evo_eukaryotic_effect", effect)
     }),
     cost: Some(|game| {
         cost! {
@@ -260,7 +271,7 @@ pub const ACTION_MITOCHONDRIA: Action = Action {
     id: "evolution-mitochondria",
     title: "evo_mitochondria_title",
     desc: "evo_mitochondria_desc",
-    effect: Some(|_| "evo_mitochondria_effect".to_string()),
+    effect: Some(|_| loc!("evo_mitochondria_effect")),
     cost: Some(|game| {
         cost! {
             game,
@@ -280,7 +291,7 @@ pub const ACTION_SEXUAL_REPRODUCTION: Action = Action {
     id: "evolution-sexual_reproduction",
     title: "evo_sexual_reproduction_title",
     desc: "evo_sexual_reproduction_desc",
-    effect: Some(|_| "evo_sexual_reproduction_effect".to_string()),
+    effect: Some(|_| loc!("evo_sexual_reproduction_effect")),
     cost: Some(|_| cost!(DNA => 150)),
     action: |s, game| {
         if s.pay(game) {
@@ -308,7 +319,7 @@ pub const ACTION_PHAGOCYTOSIS: Action = Action {
     id: "evolution-phagocytosis",
     title: "evo_phagocytosis_title",
     desc: "evo_phagocytosis_desc",
-    effect: Some(|_| "evo_phagocytosis_effect".to_string()),
+    effect: Some(|_| loc!("evo_phagocytosis_effect")),
     cost: Some(|_| cost!(DNA => 175)),
     action: |s, game| {
         if s.pay(game) {
@@ -333,7 +344,7 @@ pub const ACTION_CHLOROPLASTS: Action = Action {
     id: "evolution-chloroplasts",
     title: "evo_chloroplasts_title",
     desc: "evo_chloroplasts_desc",
-    effect: Some(|_| "evo_chloroplasts_effect".to_string()),
+    effect: Some(|_| loc!("evo_chloroplasts_effect")),
     cost: Some(|_| cost!(DNA => 175)),
     action: |s, game| {
         if s.pay(game) {
@@ -358,7 +369,7 @@ pub const ACTION_CHITIN: Action = Action {
     id: "evolution-chitin",
     title: "evo_chitin_title",
     desc: "evo_chitin_desc",
-    effect: Some(|_| "evo_chitin_effect".to_string()),
+    effect: Some(|_| loc!("evo_chitin_effect")),
     cost: Some(|_| cost!(DNA => 175)),
     action: |s, game| {
         if s.pay(game) {
@@ -383,7 +394,7 @@ pub const ACTION_MULTICELLULAR: Action = Action {
     id: "evolution-multicellular",
     title: "evo_multicellular_title",
     desc: "evo_multicellular_desc",
-    effect: Some(|_| "evo_multicellular_effect".to_string()),
+    effect: Some(|_| loc!("evo_multicellular_effect")),
     cost: Some(|_| cost!(DNA => 200)),
     action: |s, game| {
         if s.pay(game) {
@@ -415,7 +426,7 @@ pub const ACTION_BILATERAL_SYMMETRY: Action = Action {
     id: "evolution-bilateral_symmetry",
     title: "evo_bilateral_symmetry_title",
     desc: "evo_bilateral_symmetry_desc",
-    effect: Some(|_| "evo_nucleus_boost".to_string()),
+    effect: Some(|_| loc!("evo_nucleus_boost")),
     cost: Some(|_| cost!(DNA => 230)),
     action: |_, _| panic!("Animal kingdom is not implemented yet"),
     count: None,
@@ -425,7 +436,7 @@ pub const ACTION_POKILOHYDRIC: Action = Action {
     id: "evolution-poikilohydric",
     title: "evo_poikilohydric_title",
     desc: "evo_poikilohydric_desc",
-    effect: Some(|_| "evo_nucleus_boost".to_string()),
+    effect: Some(|_| loc!("evo_nucleus_boost")),
     cost: Some(|_| cost!(DNA => 230)),
     action: |s, game| {
         if s.pay(game) {
@@ -446,7 +457,7 @@ pub const ACTION_SPORES: Action = Action {
     id: "evolution-spores",
     title: "evo_spores_title",
     desc: "evo_spores_desc",
-    effect: Some(|_| "evo_nucleus_boost".to_string()),
+    effect: Some(|_| loc!("evo_nucleus_boost")),
     cost: Some(|_| cost!(DNA => 230)),
     action: |s, game| {
         if s.pay(game) {
@@ -469,7 +480,7 @@ pub const ACTION_BRYOPHYTE: Action = Action {
     id: "evolution-bryophyte",
     title: "evo_bryophyte_title",
     desc: "evo_bryophyte_desc",
-    effect: Some(|_| "evo_bryophyte_effect".to_string()),
+    effect: Some(|_| loc!("evo_bryophyte_effect")),
     cost: Some(|_| cost!(DNA => 260)),
     action: |s, game| {
         if s.pay(game) {
@@ -490,7 +501,7 @@ pub const ACTION_SENTIENCE: Action = Action {
     id: "evolution-sentience",
     title: "evo_sentience_title",
     desc: "evo_sentience_desc",
-    effect: Some(|_| "evo_sentience_effect".to_string()),
+    effect: Some(|_| loc!("evo_sentience_effect")),
     cost: Some(|_| {
         cost! {
             RNA => 300,
